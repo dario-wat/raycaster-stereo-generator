@@ -1,0 +1,18 @@
+#IncludeRegexLine: ^[ 	]*#[ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+/home/local/TOBII/dvs/Desktop/face_caster/geometry.cpp
+geometry.h
+/home/local/TOBII/dvs/Desktop/face_caster/geometry.h
+cmath
+-
+
+/home/local/TOBII/dvs/Desktop/face_caster/geometry.h
+boost/python.hpp
+-
+
