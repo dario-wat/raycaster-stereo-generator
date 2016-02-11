@@ -25,7 +25,7 @@ if __name__ == '__main__':
     ax = fig.add_subplot(111, projection='3d')
 
     xsize = 32
-    ysize = 24
+    ysize = 4
 
     veca = np.array([1.0, 0.0, 0.0]) * 2 / xsize
     vecb = np.array([0.0, 1.0, 0.0]) * 2 / ysize
@@ -48,8 +48,10 @@ if __name__ == '__main__':
             
             triangle_cpp = Triangle(Vector(*vertices[t[0]]), Vector(*vertices[t[1]]), Vector(*vertices[t[2]]))
             # print intersect_ray_triangle(Ray(Vector()))
+            # f, p = rayIntersectTriangle(ray, vertices[t])
             f, p = intersect_ray_triangle(ray_cpp, triangle_cpp)
             if f == 1:
+                pass
                 # ax.add_collection3d(Poly3DCollection([vertices[t]], edgecolors='k'))
                 ax.plot([source[0], p.x], [source[1], p.y], zs=[source[2], p.z])
                 ax.plot([p.x], [p.y], 'ro', zs=[p.z])
