@@ -25,7 +25,7 @@ if __name__ == '__main__':
     ax = fig.add_subplot(111, projection='3d')
 
     xsize = 32
-    ysize = 4
+    ysize = 24
 
     veca = np.array([1.0, 0.0, 0.0]) * 2 / xsize
     vecb = np.array([0.0, 1.0, 0.0]) * 2 / ysize
@@ -34,7 +34,7 @@ if __name__ == '__main__':
     for i in xrange(xsize):
         for j in xrange(ysize):
             grid[i*ysize+j] = i*veca + j*vecb + offset
-    ax.plot(grid[:,0], grid[:,1], 'r.', zs=grid[:,2])
+    # ax.plot(grid[:,0], grid[:,1], 'r.', zs=grid[:,2])
     
     source = np.array([0., 0., 3.])
 
@@ -43,7 +43,7 @@ if __name__ == '__main__':
         # print p
         ray = np.vstack([source, po])
         ax.plot(ray[:,0], ray[:,1], zs=ray[:,2])
-        ray_cpp = Ray(Vector(source[0], source[1], source[2]), Vector(po[0], po[1], po[2]))
+        ray_cpp = Ray(Vector(*source), Vector(*po))
         for t in triangles:
             
             triangle_cpp = Triangle(Vector(*vertices[t[0]]), Vector(*vertices[t[1]]), Vector(*vertices[t[2]]))
@@ -51,7 +51,6 @@ if __name__ == '__main__':
             # f, p = rayIntersectTriangle(ray, vertices[t])
             f, p = intersect_ray_triangle(ray_cpp, triangle_cpp)
             if f == 1:
-                pass
                 # ax.add_collection3d(Poly3DCollection([vertices[t]], edgecolors='k'))
                 ax.plot([source[0], p.x], [source[1], p.y], zs=[source[2], p.z])
                 ax.plot([p.x], [p.y], 'ro', zs=[p.z])
