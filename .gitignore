@@ -1,0 +1,4 @@
+*.pyc
+CMakeFiles/*
+*.cmake
+Makefile

@@ -9,6 +9,8 @@ from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 import rcutils
 from geometry import rayIntersectTriangle
 
+from geometry_cpp import intersect_ray_triangle, Vector, Ray, Triangle
+
 def raycaster(source, focalVec, rotation, gridSize, vertices, triangles):
     pass
 
@@ -37,16 +39,20 @@ if __name__ == '__main__':
     source = np.array([0., 0., 3.])
 
     start = time.time()
-    for p in grid:
+    for po in grid:
         # print p
-        ray = np.vstack([source, p])
+        ray = np.vstack([source, po])
         ax.plot(ray[:,0], ray[:,1], zs=ray[:,2])
+        ray_cpp = Ray(Vector(source[0], source[1], source[2]), Vector(po[0], po[1], po[2]))
         for t in triangles:
-            f, p = rayIntersectTriangle(ray, vertices[t])
+            
+            triangle_cpp = Triangle(Vector(*vertices[t[0]]), Vector(*vertices[t[1]]), Vector(*vertices[t[2]]))
+            # print intersect_ray_triangle(Ray(Vector()))
+            f, p = intersect_ray_triangle(ray_cpp, triangle_cpp)
             if f == 1:
                 # ax.add_collection3d(Poly3DCollection([vertices[t]], edgecolors='k'))
-                ax.plot([source[0], p[0]], [source[1], p[1]], zs=[source[2], p[2]])
-                ax.plot([p[0]], [p[1]], 'ro', zs=[p[2]])
+                ax.plot([source[0], p.x], [source[1], p.y], zs=[source[2], p.z])
+                ax.plot([p.x], [p.y], 'ro', zs=[p.z])
     
     print time.time() - start
     collection = rcutils.createCollection(vertices, triangles)

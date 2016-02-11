@@ -39,10 +39,10 @@ RM = /usr/bin/cmake -E remove -f
 EQUALS = =
 
 # The top-level source directory on which CMake was run.
-CMAKE_SOURCE_DIR = /home/local/TOBII/dvs/Desktop/face_caster
+CMAKE_SOURCE_DIR = /home/local/TOBII/dvs/Desktop/raycaster-stereo-generator
 
 # The top-level build directory on which CMake was run.
-CMAKE_BINARY_DIR = /home/local/TOBII/dvs/Desktop/face_caster
+CMAKE_BINARY_DIR = /home/local/TOBII/dvs/Desktop/raycaster-stereo-generator
 
 #=============================================================================
 # Targets provided globally by CMake.
@@ -69,9 +69,9 @@ rebuild_cache/fast: rebuild_cache
 
 # The main all target
 all: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/local/TOBII/dvs/Desktop/face_caster/CMakeFiles /home/local/TOBII/dvs/Desktop/face_caster/CMakeFiles/progress.marks
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/local/TOBII/dvs/Desktop/raycaster-stereo-generator/CMakeFiles /home/local/TOBII/dvs/Desktop/raycaster-stereo-generator/CMakeFiles/progress.marks
 	$(MAKE) -f CMakeFiles/Makefile2 all
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/local/TOBII/dvs/Desktop/face_caster/CMakeFiles 0
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/local/TOBII/dvs/Desktop/raycaster-stereo-generator/CMakeFiles 0
 .PHONY : all
 
 # The main clean target
@@ -99,24 +99,24 @@ depend:
 .PHONY : depend
 
 #=============================================================================
-# Target rules for targets named teststuff
+# Target rules for targets named geometry_cpp
 
 # Build rule for target.
-teststuff: cmake_check_build_system
-	$(MAKE) -f CMakeFiles/Makefile2 teststuff
-.PHONY : teststuff
+geometry_cpp: cmake_check_build_system
+	$(MAKE) -f CMakeFiles/Makefile2 geometry_cpp
+.PHONY : geometry_cpp
 
 # fast build rule for target.
-teststuff/fast:
-	$(MAKE) -f CMakeFiles/teststuff.dir/build.make CMakeFiles/teststuff.dir/build
-.PHONY : teststuff/fast
+geometry_cpp/fast:
+	$(MAKE) -f CMakeFiles/geometry_cpp.dir/build.make CMakeFiles/geometry_cpp.dir/build
+.PHONY : geometry_cpp/fast
 
 geometry.o: geometry.cpp.o
 .PHONY : geometry.o
 
 # target to build an object file
 geometry.cpp.o:
-	$(MAKE) -f CMakeFiles/teststuff.dir/build.make CMakeFiles/teststuff.dir/geometry.cpp.o
+	$(MAKE) -f CMakeFiles/geometry_cpp.dir/build.make CMakeFiles/geometry_cpp.dir/geometry.cpp.o
 .PHONY : geometry.cpp.o
 
 geometry.i: geometry.cpp.i
@@ -124,7 +124,7 @@ geometry.i: geometry.cpp.i
 
 # target to preprocess a source file
 geometry.cpp.i:
-	$(MAKE) -f CMakeFiles/teststuff.dir/build.make CMakeFiles/teststuff.dir/geometry.cpp.i
+	$(MAKE) -f CMakeFiles/geometry_cpp.dir/build.make CMakeFiles/geometry_cpp.dir/geometry.cpp.i
 .PHONY : geometry.cpp.i
 
 geometry.s: geometry.cpp.s
@@ -132,7 +132,7 @@ geometry.s: geometry.cpp.s
 
 # target to generate assembly for a file
 geometry.cpp.s:
-	$(MAKE) -f CMakeFiles/teststuff.dir/build.make CMakeFiles/teststuff.dir/geometry.cpp.s
+	$(MAKE) -f CMakeFiles/geometry_cpp.dir/build.make CMakeFiles/geometry_cpp.dir/geometry.cpp.s
 .PHONY : geometry.cpp.s
 
 # Help Target
@@ -142,8 +142,8 @@ help:
 	@echo "... clean"
 	@echo "... depend"
 	@echo "... edit_cache"
+	@echo "... geometry_cpp"
 	@echo "... rebuild_cache"
-	@echo "... teststuff"
 	@echo "... geometry.o"
 	@echo "... geometry.i"
 	@echo "... geometry.s"
