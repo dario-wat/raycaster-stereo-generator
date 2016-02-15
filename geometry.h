@@ -64,7 +64,9 @@ struct Triangle {
 // Smart functions
 boost::python::tuple intersect_ray_triangle(const Ray &r, const Triangle &t);
 boost::python::list rotate_3d(
-    const Vector &rot_axis, double rot_angle, const boost::python::list &vectors) ;
+    const Vector &rot_axis, double rot_angle, const boost::python::list &vectors);
+boost::python::list create_grid(
+    int width, int height, const Vector &vec_x, const Vector &vec_y, const Vector &offset);
 
 }
 
@@ -93,6 +95,7 @@ BOOST_PYTHON_MODULE(geometry_cpp) {
         .def_readonly("c", &ster::Triangle::c);
     def("intersect_ray_triangle", ster::intersect_ray_triangle);
     def("rotate_3d", ster::rotate_3d);
+    def("create_grid", ster::create_grid);
 }
 
 #endif

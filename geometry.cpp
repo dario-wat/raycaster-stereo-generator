@@ -72,6 +72,7 @@ boost::python::tuple ster::intersect_ray_triangle(const ster::Ray &ray, const st
     return tuple_(1, intersection);
 }
 
+// Used for __getitem__ slice
 boost::python::list ster::Vector::get_item_slice(const boost::python::slice &slice) const {
     boost::python::list result;
     boost::python::slice::range<std::array<double, 3>::const_iterator> range;
@@ -119,4 +120,17 @@ boost::python::list ster::rotate_3d(
         list.append(ster::Vector(va*vec, vb*vec, vc*vec));
     }
     return list;
-}  
+}
+
+// Creates a grid, returns a list of grid points as ster::Vector-s
+boost::python::list ster::create_grid(
+        int width, int height,
+        const ster::Vector &vec_x, const ster::Vector &vec_y, const ster::Vector &offset) {
+    boost::python::list list;
+    for (int i = 0; i < width; i++) {
+        for (int j = 0; j < height; j++) {
+            list.append(i*vec_x + j*vec_y + offset);
+        }
+    }
+    return list;
+}

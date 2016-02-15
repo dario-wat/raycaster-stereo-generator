@@ -7,9 +7,9 @@ from mpl_toolkits.mplot3d import Axes3D
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
 import rcutils
-# import geometry
+import geometry
 
-from geometry_cpp import intersect_ray_triangle, rotate_3d, Vector, Ray, Triangle
+from geometry_cpp import intersect_ray_triangle, rotate_3d, Vector, Ray, Triangle, create_grid
 
 def plotP(ax, p):
     ax.plot([p[0]], [p[1]], 'o', zs=[p[2]])
@@ -33,10 +33,10 @@ if __name__ == '__main__':
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
     collection = rcutils.createCollection(vertices, triangles)
-    ax.add_collection3d(Poly3DCollection(collection, facecolors='0.75', edgecolors='k'))
+    # ax.add_collection3d(Poly3DCollection(collection, facecolors='0.75', edgecolors='k'))
 
     widthPxl = 10
-    heightPxl = 5
+    heightPxl = 6
     widthChip = 1.6
     heightChip = 1.2
     focalLength = 1.5
@@ -50,15 +50,12 @@ if __name__ == '__main__':
     veca, vecb = rotate_3d(focVec, np.pi/4, [veca, vecb])
     veca = veca / veca.norm() * widthChip / widthPxl
     vecb = vecb / vecb.norm() * heightChip / heightPxl
-    offset = source + focVec - veca * widthPxl / 2. - vecb * heightPxl / 2.
+    offset = source + focVec - veca * (widthPxl-1) / 2. - vecb * (heightPxl-1) / 2.
 
-    start = time.time()
-    grid = np.zeros((widthPxl*heightPxl, 3))
-    for i in xrange(widthPxl):
-        for j in xrange(heightPxl):
-            grid[i*heightPxl+j] = i*veca + j*vecb + offset
-    print time.time() - start
-    ax.plot(grid[:,0], grid[:,1], 'y.', zs=grid[:,2])
+    grid = create_grid(widthPxl, heightPxl, veca, vecb, offset)
+    xs, ys, zs = zip(*grid)
+    ax.plot(xs, ys, 'y.', zs=zs)
+
     # plotP(ax, source)
     # plotL(ax, source, source + focVec)
     # plotL(ax, source, source + focVec + veca * widthPxl / 2)
@@ -70,11 +67,9 @@ if __name__ == '__main__':
     veca = veca / veca.norm() * widthChip / widthPxl
     vecb = vecb / vecb.norm() * heightChip / heightPxl
     offset = source2 + focVec2 - veca * widthPxl / 2. - vecb * heightPxl / 2.
-    grid2 = np.zeros((widthPxl*heightPxl, 3))
-    for i in xrange(widthPxl):
-        for j in xrange(heightPxl):
-            grid2[i*heightPxl+j] = list(i*veca + j*vecb + offset)
-    ax.plot(grid2[:,0], grid2[:,1], 'b.', zs=grid2[:,2])
+    grid2 = create_grid(widthPxl, heightPxl, veca, vecb, offset)
+    xs, ys, zs = zip(*grid2)
+    # ax.plot(xs, ys, 'b.', zs=zs)
     # plotP(ax, source2)
     # plotL(ax, source2, source2 + focVec2)
     # plotL(ax, source2, source2 + focVec2 + veca * widthPxl / 2)
@@ -83,7 +78,7 @@ if __name__ == '__main__':
     # TODO something is wrong with this intersection
     tri1 = Triangle(offset, offset + veca*(widthPxl-1), offset + veca*(widthPxl-1) + vecb*(heightPxl-1))
     tri2 = Triangle(offset, offset + veca*(heightPxl-1), offset + veca*(widthPxl-1) + vecb*(heightPxl-1))
-    plotT(ax, tri1)
+    # plotT(ax, tri1)
 
     start = time.time()
     for po in grid:
@@ -97,17 +92,17 @@ if __name__ == '__main__':
             f, p = intersect_ray_triangle(ray_cpp, triangle_cpp)
             if f == 1:
                 # ax.add_collection3d(Poly3DCollection([vertices[t]], edgecolors='k'))
-                plotL(ax, source2, p)
+                # plotL(ax, source2, p)
                 intr = Ray(source2, p)
                 ax.plot([source[0], p[0]], [source[1], p[1]], 'r-', zs=[source[2], p[2]])
                 ax.plot([p[0]], [p[1]], 'r.', zs=[p[2]])
 
                 f, p = intersect_ray_triangle(intr, tri1)
-                if f == 1:
-                    plotP(ax, p)
+                # if f == 1:
+                    # plotP(ax, p)
                 f, p = intersect_ray_triangle(intr, tri2)
-                if f == 1:
-                    plotP(ax, p)
+                # if f == 1:
+                #     plotP(ax, p)
     
     print time.time() - start
 
