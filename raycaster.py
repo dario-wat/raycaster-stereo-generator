@@ -7,7 +7,7 @@ from mpl_toolkits.mplot3d import Axes3D
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
 import rcutils
-from geometry import rotate3d
+# import geometry
 
 from geometry_cpp import intersect_ray_triangle, rotate_3d, Vector, Ray, Triangle
 
@@ -52,10 +52,12 @@ if __name__ == '__main__':
     vecb = vecb / vecb.norm() * heightChip / heightPxl
     offset = source + focVec - veca * widthPxl / 2. - vecb * heightPxl / 2.
 
+    start = time.time()
     grid = np.zeros((widthPxl*heightPxl, 3))
     for i in xrange(widthPxl):
         for j in xrange(heightPxl):
             grid[i*heightPxl+j] = i*veca + j*vecb + offset
+    print time.time() - start
     ax.plot(grid[:,0], grid[:,1], 'y.', zs=grid[:,2])
     # plotP(ax, source)
     # plotL(ax, source, source + focVec)
@@ -78,6 +80,7 @@ if __name__ == '__main__':
     # plotL(ax, source2, source2 + focVec2 + veca * widthPxl / 2)
     # plotL(ax, source2, source2 + focVec2 + vecb * heightPxl / 2)
     
+    # TODO something is wrong with this intersection
     tri1 = Triangle(offset, offset + veca*(widthPxl-1), offset + veca*(widthPxl-1) + vecb*(heightPxl-1))
     tri2 = Triangle(offset, offset + veca*(heightPxl-1), offset + veca*(widthPxl-1) + vecb*(heightPxl-1))
     plotT(ax, tri1)
