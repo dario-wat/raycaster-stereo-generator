@@ -17,6 +17,9 @@ def plotP(ax, p):
 def plotL(ax, a, b):
     ax.plot([a[0], b[0]], [a[1], b[1]], '-', zs=[a[2], b[2]])
 
+def plotT(ax, t):
+    ax.add_collection3d(Poly3DCollection([[t.a, t.b, t.c]], facecolors='#ffaab4', edgecolors='r'))
+
 def raycaster(source, focalVec, vertVec, horizVec, rotAngle, gridSize, vertices, triangles):
     pass
 
@@ -32,8 +35,8 @@ if __name__ == '__main__':
     collection = rcutils.createCollection(vertices, triangles)
     ax.add_collection3d(Poly3DCollection(collection, facecolors='0.75', edgecolors='k'))
 
-    widthPxl = 32
-    heightPxl = 24
+    widthPxl = 10
+    heightPxl = 5
     widthChip = 1.6
     heightChip = 1.2
     focalLength = 1.5
@@ -52,13 +55,33 @@ if __name__ == '__main__':
     grid = np.zeros((widthPxl*heightPxl, 3))
     for i in xrange(widthPxl):
         for j in xrange(heightPxl):
-            grid[i*heightPxl+j] = list(i*veca + j*vecb + offset)
+            grid[i*heightPxl+j] = i*veca + j*vecb + offset
     ax.plot(grid[:,0], grid[:,1], 'y.', zs=grid[:,2])
-    plotP(ax, source)
-    plotL(ax, source, source + focVec)
-    plotL(ax, source, source + focVec + veca * widthPxl / 2)
-    plotL(ax, source, source + focVec + vecb * heightPxl / 2)
+    # plotP(ax, source)
+    # plotL(ax, source, source + focVec)
+    # plotL(ax, source, source + focVec + veca * widthPxl / 2)
+    # plotL(ax, source, source + focVec + vecb * heightPxl / 2)
+
+    source2 = Vector(0., 1., 3.)
+    focVec2 = Vector(0., 0., -1.) * focalLength
+    # veca, vecb = rotate_3d(focVec2, np.pi/4, [veca, vecb])
+    veca = veca / veca.norm() * widthChip / widthPxl
+    vecb = vecb / vecb.norm() * heightChip / heightPxl
+    offset = source2 + focVec2 - veca * widthPxl / 2. - vecb * heightPxl / 2.
+    grid2 = np.zeros((widthPxl*heightPxl, 3))
+    for i in xrange(widthPxl):
+        for j in xrange(heightPxl):
+            grid2[i*heightPxl+j] = list(i*veca + j*vecb + offset)
+    ax.plot(grid2[:,0], grid2[:,1], 'b.', zs=grid2[:,2])
+    # plotP(ax, source2)
+    # plotL(ax, source2, source2 + focVec2)
+    # plotL(ax, source2, source2 + focVec2 + veca * widthPxl / 2)
+    # plotL(ax, source2, source2 + focVec2 + vecb * heightPxl / 2)
     
+    tri1 = Triangle(offset, offset + veca*(widthPxl-1), offset + veca*(widthPxl-1) + vecb*(heightPxl-1))
+    tri2 = Triangle(offset, offset + veca*(heightPxl-1), offset + veca*(widthPxl-1) + vecb*(heightPxl-1))
+    plotT(ax, tri1)
+
     start = time.time()
     for po in grid:
         # print p
@@ -70,10 +93,18 @@ if __name__ == '__main__':
             # f, p = rayIntersectTriangle(ray, vertices[t])
             f, p = intersect_ray_triangle(ray_cpp, triangle_cpp)
             if f == 1:
-                pass
                 # ax.add_collection3d(Poly3DCollection([vertices[t]], edgecolors='k'))
-                # ax.plot([source[0], p.x], [source[1], p.y], zs=[source[2], p.z])
+                plotL(ax, source2, p)
+                intr = Ray(source2, p)
+                ax.plot([source[0], p[0]], [source[1], p[1]], 'r-', zs=[source[2], p[2]])
                 ax.plot([p[0]], [p[1]], 'r.', zs=[p[2]])
+
+                f, p = intersect_ray_triangle(intr, tri1)
+                if f == 1:
+                    plotP(ax, p)
+                f, p = intersect_ray_triangle(intr, tri2)
+                if f == 1:
+                    plotP(ax, p)
     
     print time.time() - start
 

@@ -72,6 +72,21 @@ boost::python::tuple ster::intersect_ray_triangle(const ster::Ray &ray, const st
     return tuple_(1, intersection);
 }
 
+boost::python::list ster::Vector::get_item_slice(const boost::python::slice &slice) const {
+    boost::python::list result;
+    boost::python::slice::range<std::array<double, 3>::const_iterator> range;
+    try {
+        range = slice.get_indices(v.begin(), v.end());
+    } catch (std::invalid_argument) {
+        return result;
+    }
+    for (; range.start != range.stop; std::advance(range.start, range.step)) {
+        result.append(*range.start);
+    }
+    result.append(*range.start); // Handle last item.
+    return result;
+}
+
 // Converts vector into a string
 std::string ster::Vector::to_string() const {
     std::stringstream ss;
