@@ -7,7 +7,7 @@ from mpl_toolkits.mplot3d import Axes3D
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
 import rcutils
-from geometry import rayIntersectTriangle, rotate3d
+from geometry import rotate3d
 
 from geometry_cpp import intersect_ray_triangle, rotate_3d, Vector, Ray, Triangle
 
