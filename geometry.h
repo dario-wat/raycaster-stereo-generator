@@ -2,29 +2,43 @@
 #define GEOMETRY_H_
 
 #include <string>
+#include <array>
+#include <cmath>
 #include <boost/python.hpp>
 #include <boost/python/tuple.hpp>
+#include <boost/python/list.hpp>
 
 namespace ster {
 
 class Vector {
 public:
-    double x, y, z;
+    const std::array<double, 3> v;
     static const Vector ZERO;
 
-    Vector(double x, double y, double z) : x(x), y(y), z(z) {}
-    Vector operator+(const Vector &other) const { return Vector(x+other.x, y+other.y, z+other.z); }
-    Vector operator-(const Vector &other) const { return Vector(x-other.x, y-other.y, z-other.z); }
-    Vector cross(const Vector &other) const {
-        return Vector(y*other.z - z*other.y, z*other.x - x*other.z, x*other.y - y*other.x);
-    }
-    double operator*(const Vector &other) const { return x*other.x + y*other.y + z*other.z; }
-    Vector operator*(double m) const { return Vector(x*m, y*m, z*m); }
-    bool operator==(const Vector &other) const { return x == other.x && y == other.y && z == other.z; }
-    bool operator!=(const Vector &other) const { return !(*this == other); }
+    Vector(double x, double y, double z) : v{x, y, z} {}
+    Vector operator+(const Vector &o) const { return Vector(v[0]+o.v[0], v[1]+o.v[1], v[2]+o.v[2]); }
+    Vector operator-(const Vector &o) const { return Vector(v[0]-o.v[0], v[1]-o.v[1], v[2]-o.v[2]); }
+    double operator*(const Vector &o) const { return v[0]*o.v[0] + v[1]*o.v[1] + v[2]*o.v[2]; }
+    Vector operator*(double m) const { return Vector(v[0]*m, v[1]*m, v[2]*m); }
+    Vector operator/(double m) const { return Vector(v[0]/m, v[1]/m, v[2]/m); }
+    Vector operator*(int m) const { return *this * (double) m; }
+    double operator[](int i) const { return v[i]; }
+    bool operator==(const Vector &o) const { return v[0] == o.v[0] && v[1] == o.v[1] && v[2] == o.v[2]; }
+    bool operator!=(const Vector &o) const { return !(*this == o); }
 
+    Vector cross(const Vector &o) const {
+        return Vector(v[1]*o.v[2] - v[2]*o.v[1], v[2]*o.v[0] - v[0]*o.v[2], v[0]*o.v[1] - v[1]*o.v[0]);
+    }
+    double norm() const { return sqrt(v[0]*v[0] + v[1]*v[1] + v[2]*v[2]); }
+    Vector normalize() const { return *this * (1 / norm()); }
+
+    const double* cbegin() const { return v.cbegin(); }
+    const double* cend() const { return v.cend(); }
     std::string to_string() const;
 };
+
+Vector operator*(double m, const Vector& o) { return o * m; }
+Vector operator*(int m, const Vector &o) { return o * m; }
 
 struct Ray {
     Vector a, b;
@@ -37,6 +51,8 @@ struct Triangle {
 };
 
 boost::python::tuple intersect_ray_triangle(const Ray &r, const Triangle &t);
+boost::python::list rotate_3d(
+    const Vector &rot_axis, double rot_angle, const boost::python::list &vectors) ;
 
 }
 
@@ -45,13 +61,21 @@ using namespace boost::python;
 
 BOOST_PYTHON_MODULE(geometry_cpp) {
     class_<ster::Vector>("Vector", init<double, double, double>())
+        .def(self * double())
+        .def(double() * self)
+        .def(self / double())
+        .def(self + self)
+        .def(self - self)
+        .def(self * int())
+        .def(int() * self)
         .def("__repr__", &ster::Vector::to_string)
-        .def_readonly("x", &ster::Vector::x)
-        .def_readonly("y", &ster::Vector::y)
-        .def_readonly("z", &ster::Vector::z);
+        .def("__getitem__", &ster::Vector::operator[])
+        .def("__iter__", range(&ster::Vector::cbegin, &ster::Vector::cend))
+        .def("norm", &ster::Vector::norm);
     class_<ster::Ray>("Ray", init<ster::Vector, ster::Vector>());
     class_<ster::Triangle>("Triangle", init<ster::Vector, ster::Vector, ster::Vector>());
     def("intersect_ray_triangle", ster::intersect_ray_triangle);
+    def("rotate_3d", ster::rotate_3d);
 }
 
 #endif

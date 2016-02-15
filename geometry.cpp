@@ -5,6 +5,7 @@
 #include <cmath>
 #include <boost/python/tuple.hpp>
 #include <boost/python/object.hpp>
+#include <boost/python/list.hpp>
 
 #include <iostream>
 
@@ -74,6 +75,33 @@ boost::python::tuple ster::intersect_ray_triangle(const ster::Ray &ray, const st
 // Converts vector into a string
 std::string ster::Vector::to_string() const {
     std::stringstream ss;
-    ss << '[' << std::setprecision(3) << x << ' ' << y << ' ' << z << ']';
+    ss << '[' << std::setprecision(3) << v[0] << ' ' << v[1] << ' ' << v[2] << ']';
     return ss.str();
 }
+
+// Rotates vectors and points around the axis of rotation.
+// rotAxis     - the axis of rotation (it goes through the origin and is normalized)
+// rotAngle    - angle of rotation
+// vectors     - a list of vectors to rotate or points that need to be translated around the
+//               origin since the axis of rotation goes through origin and the rotation
+//               would not work otherwise.
+boost::python::list ster::rotate_3d(
+        const ster::Vector &rot_axis, double rot_angle, const boost::python::list &vectors) {
+    ster::Vector rot_ax = rot_axis.normalize();
+    double s = sin(rot_angle / 2.), c = cos(rot_angle / 2.);
+    double q0 = c, q1 = s*rot_ax[0], q2 = s*rot_ax[1], q3 = s*rot_ax[2];
+    double q00 = q0*q0, q11 = q1*q1, q22 = q2*q2, q33 = q3*q3;
+    double q01 = q0*q1, q02 = q0*q2, q03 = q0*q3, q12 = q1*q2, q13 = q1*q3, q23 = q2*q3;
+
+    ster::Vector va(q00 + q11 - q22 - q33, 2*(q12 - q03), 2*(q13 + q02));
+    ster::Vector vb(2*(q12 + q03), q00 - q11 + q22 - q33, 2*(q23 - q01));
+    ster::Vector vc(2*(q13 - q02), 2*(q23 + q01), q00 - q11 - q22 + q33);
+
+    boost::python::list list;
+    int n = boost::python::len(vectors);
+    for (int i = 0; i < n; i++) {
+        ster::Vector vec = boost::python::extract<ster::Vector>(vectors[i]);
+        list.append(ster::Vector(va*vec, vb*vec, vc*vec));
+    }
+    return list;
+}  

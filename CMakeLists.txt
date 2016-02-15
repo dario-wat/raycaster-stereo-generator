@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 2.8)
 
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+
 find_package(Boost 1.54.0 COMPONENTS python)
 include_directories(${Boost_INCLUDE_DIRS} "/usr/include/python2.7")
 add_library(geometry_cpp SHARED geometry.cpp)

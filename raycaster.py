@@ -9,7 +9,7 @@ from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 import rcutils
 from geometry import rayIntersectTriangle, rotate3d
 
-from geometry_cpp import intersect_ray_triangle, Vector, Ray, Triangle
+from geometry_cpp import intersect_ray_triangle, rotate_3d, Vector, Ray, Triangle
 
 def plotP(ax, p):
     ax.plot([p[0]], [p[1]], 'o', zs=[p[2]])
@@ -19,20 +19,6 @@ def plotL(ax, a, b):
 
 def raycaster(source, focalVec, vertVec, horizVec, rotAngle, gridSize, vertices, triangles):
     pass
-    # focalVec = focalVec / np.linalg.norm(focalVec)
-    # s = np.sin(rotAngle / 2.)
-    # q0, q1, q2, q3 = np.cos(rotAngle / 2.), s*focalVec[0], s*focalVec[1], s*focalVec[2]
-    # Q = np.array(
-    #     [[q0*q0 + q1*q1 - q2*q2 - q3*q3, 2*q1*q2 - 2*q0*q3, 2*q1*q3 + 2*q0*q2],
-    #     [2*q1*q2 + 2*q0*q3, q0*q0 - q1*q1 + q2*q2 - q3*q3, 2*q2*q3 - 2*q0*q1],
-    #     [2*q1*q3 - 2*q0*q2, 2*q3*q2 + 2*q0*q1, q0*q0 - q1*q1 - q2*q2 + q3*q3]])
-    # tHoriz = horizVec #/ np.linalg.norm(horizVec)#- source
-    # tVert = vertVec #/np.linalg.norm(vertVec)#- source
-    # rHoriz = np.dot(Q, tHoriz)
-    # rVert = np.dot(Q, tVert)
-    # rHorizVec = rHoriz #+ source
-    # rVertVec = rVert #+ source
-    # return rHorizVec, rVertVec
 
 if __name__ == '__main__':
     if len(sys.argv) <= 1:
@@ -52,39 +38,31 @@ if __name__ == '__main__':
     heightChip = 1.2
     focalLength = 1.5
 
-    veca = np.array([1.0, 0.0, 0.0]) * widthChip / widthPxl
-    vecb = np.array([0.0, 1.0, 0.0]) * heightChip / heightPxl
-    focVec = np.array([0., 0., -1.]) * focalLength
-    source = np.array([0., 0., 3.])
+    focVec = Vector(0., 0., -1.) * focalLength
+    veca = Vector(1., 0., 0.) * (widthChip / widthPxl)
+    vecb = Vector(0., 1., 0.) * (heightChip / heightPxl)
+    source = Vector(0., 0., 3.)
 
-    plotL(ax, source + focVec, source + focVec + veca*10)
-    plotL(ax, source + focVec, source + focVec + vecb*10)
-
-    start = time.time()
     # veca, vecb = raycaster(source, focVec, vecb, veca, np.pi/4, None, None, None)
-    veca, vecb = rotate3d(focVec, np.pi/4, [veca, vecb])
-    print time.time() - start
-    veca = veca / np.linalg.norm(veca) * widthChip / widthPxl
-    vecb = vecb / np.linalg.norm(vecb) * heightChip / heightPxl
-    plotL(ax, source + focVec, source + focVec + veca*10)
-    plotL(ax, source + focVec, source + focVec + vecb*10)
+    veca, vecb = rotate_3d(focVec, np.pi/4, [veca, vecb])
+    veca = veca / veca.norm() * widthChip / widthPxl
+    vecb = vecb / vecb.norm() * heightChip / heightPxl
     offset = source + focVec - veca * widthPxl / 2. - vecb * heightPxl / 2.
 
-    plotP(ax, source)
-    plotL(ax, source, source + focVec)
-
-    start = time.time()
     grid = np.zeros((widthPxl*heightPxl, 3))
     for i in xrange(widthPxl):
         for j in xrange(heightPxl):
-            grid[i*heightPxl+j] = i*veca + j*vecb + offset
-    ax.plot(grid[:,0], grid[:,1], 'r.', zs=grid[:,2])
-    print 'Grid generate', time.time() - start
+            grid[i*heightPxl+j] = list(i*veca + j*vecb + offset)
+    ax.plot(grid[:,0], grid[:,1], 'y.', zs=grid[:,2])
+    plotP(ax, source)
+    plotL(ax, source, source + focVec)
+    plotL(ax, source, source + focVec + veca * widthPxl / 2)
+    plotL(ax, source, source + focVec + vecb * heightPxl / 2)
     
     start = time.time()
     for po in grid:
         # print p
-        ray = np.vstack([source, po])
+        # ray = np.vstack([list(source), po])
         # ax.plot(ray[:,0], ray[:,1], zs=ray[:,2])
         ray_cpp = Ray(Vector(*source), Vector(*po))
         for t in triangles:
@@ -92,9 +70,10 @@ if __name__ == '__main__':
             # f, p = rayIntersectTriangle(ray, vertices[t])
             f, p = intersect_ray_triangle(ray_cpp, triangle_cpp)
             if f == 1:
+                pass
                 # ax.add_collection3d(Poly3DCollection([vertices[t]], edgecolors='k'))
                 # ax.plot([source[0], p.x], [source[1], p.y], zs=[source[2], p.z])
-                ax.plot([p.x], [p.y], 'r.', zs=[p.z])
+                ax.plot([p[0]], [p[1]], 'r.', zs=[p[2]])
     
     print time.time() - start
 
