@@ -176,10 +176,15 @@ boost::python::tuple ster::intersect_ray_scene(const ster::Ray &r, const boost::
 
 // Simpler version of intersect_ray_scene which just checks if the ray intersects any
 // triangle in the scene. This is also faster since it can finish earlier (if an intersection
-// is found) and also does not need to perform distance measuring;
-bool ster::intersects_scene(const ster::Ray &r, const boost::python::list &triangles) {
+// is found) and also does not need to perform distance measuring.
+// Note: if debugging is required change the return value to the index of the intersected triangle.
+// This is generally a bad idea, but I feel like it should not be needed
+bool ster::intersects_scene(const ster::Ray &r, const boost::python::list &triangles, int ignore_idx) {
     int n = boost::python::len(triangles);
     for (int i = 0; i < n; i++) {
+        if (i == ignore_idx) {
+            continue;
+        }
         ster::Triangle t = boost::python::extract<ster::Triangle>(triangles[i]);
         boost::python::tuple inters = ster::intersect_ray_triangle(r, t);
         int f = boost::python::extract<int>(inters[0]);

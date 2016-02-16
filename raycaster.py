@@ -71,27 +71,32 @@ if __name__ == '__main__':
     veca = veca / veca.norm() * widthChip / widthPxl
     vecb = vecb / vecb.norm() * heightChip / heightPxl
     offset = source2 + focVec2 - veca * widthPxl / 2. - vecb * heightPxl / 2.
-    grid2 = create_grid(widthPxl, heightPxl, veca, vecb, offset)
-    xs, ys, zs = zip(*grid2)
-    ax.plot(xs, ys, 'b.', zs=zs)
+    
+
+    # drain grid plotting
+    # grid2 = create_grid(widthPxl, heightPxl, veca, vecb, offset)
+    # xs, ys, zs = zip(*grid2)
+    # ax.plot(xs, ys, 'b.', zs=zs)
+    
+    # plotting vectors for drain grid
     # plotP(ax, source2)
     # plotL(ax, source2, source2 + focVec2)
     # plotL(ax, source2, source2 + focVec2 + veca * widthPxl / 2)
     # plotL(ax, source2, source2 + focVec2 + vecb * heightPxl / 2)
     
-    tri1 = Triangle(offset, offset + veca*(widthPxl-1), offset + veca*(widthPxl-1) + vecb*(heightPxl-1))
-    tri2 = Triangle(offset, offset + vecb*(heightPxl-1), offset + veca*(widthPxl-1) + vecb*(heightPxl-1))
-    fr = FakeRect(offset, veca*(widthPxl-1), vecb*(heightPxl-1))
-    # plotT(ax, tri1)
-    # plotT(ax, tri2)
+    # drain grid rectangle
+    drainRectangle = FakeRect(offset, veca*(widthPxl-1), vecb*(heightPxl-1))
+    plotT(ax, drainRectangle.t1)
+    plotT(ax, drainRectangle.t2)
 
     triangles_cpp = []
     for t in triangles:
         triangles_cpp.append(Triangle(Vector(*vertices[t[0]]), Vector(*vertices[t[1]]), Vector(*vertices[t[2]])))
 
+    # The actual raycasting
     start = time.time()
-    geometry.rayCaster(grid, source, triangles_cpp, vertices, source2, fr, offset, veca, vecb, ax)
-    
+    coords = geometry.rayCaster(grid, source, triangles_cpp, source2, drainRectangle, veca, vecb, ax)
+    print len(coords), len(grid), widthPxl*heightPxl
     print time.time() - start
 
     ax.set_xlim3d(-2, 2)

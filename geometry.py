@@ -1,5 +1,7 @@
 import numpy as np
 from math import sqrt
+from mpl_toolkits.mplot3d.art3d import Poly3DCollection
+
 from geometry_cpp import intersect_ray_triangle, intersects_scene, intersect_ray_scene, Vector, Ray, Triangle, intersect_ray_fakerect
 
 def plotP(ax, p):
@@ -8,26 +10,31 @@ def plotP(ax, p):
 def plotL(ax, a, b):
     ax.plot([a[0], b[0]], [a[1], b[1]], '-', zs=[a[2], b[2]])
 
-def rayCaster(grid, source, triangles_cpp, vertices, source2, fr, offset, veca, vecb, ax):
-    cnt = 0
+def plotT(ax, t):
+    ax.add_collection3d(Poly3DCollection([[t.a, t.b, t.c]], facecolors='#ffaab4', edgecolors='r'))
+
+def rayCaster(grid, source, sceneTriangles, drain, drainRect, veca, vecb, ax):
+    coords = []
     for po in grid:
-        # ray = np.vstack([list(source), po])
-        # ax.plot(ray[:,0], ray[:,1], zs=ray[:,2])
         ray_cpp = Ray(Vector(*source), Vector(*po))
 
-        f, p, _ = intersect_ray_scene(ray_cpp, triangles_cpp)
-        if f == 1:
-            # plotL(ax, source2, p)
-            # ax.plot([source[0], p[0]], [source[1], p[1]], 'r-', zs=[source[2], p[2]])
-            # ax.plot([p[0]], [p[1]], 'r.', zs=[p[2]])
+        f, p2, idx = intersect_ray_scene(ray_cpp, sceneTriangles)
+        if f == 1:  # this should always be true
+            # plotL(ax, drain, p2)
 
-            intr = Ray(source2, p)
-            f, p = intersect_ray_fakerect(intr, fr)
+            plotL(ax, source, p2)
+            # ax.plot([source[0], p2[0]], [source[1], p2[1]], 'r-', zs=[source[2], p2[2]])
+            ax.plot([p2[0]], [p2[1]], 'r.', zs=[p2[2]])
+
+            intr = Ray(p2, drain)
+            f, p = intersect_ray_fakerect(intr, drainRect)
             if f == 1:
-                if intersects_scene(intr, triangles_cpp):
-                    cnt += 1
-                print cnt
-                v1 = p - offset
+                if intersects_scene(intr, sceneTriangles, idx):
+                    coords.append(None)
+                    continue
+                
+                # print cnt
+                v1 = p - drainRect.origin()
                 vecx = veca / veca.norm()
                 vecy = vecb / vecb.norm()
                 cx, cy, cz = v1
@@ -36,6 +43,7 @@ def rayCaster(grid, source, triangles_cpp, vertices, source2, fr, offset, veca, 
 
                 m = (cy - by * cx/bx) / (ay - by*ax0/bx)
                 n = (cy - ay*cx/ax0) / (by - ay*bx/ax0)
+                coords.append((m, n))
                 
                 # plotL(ax, offset, offset + n*vecy)
                 # plotL(ax, offset + n*vecy, offset + m*vecx + n*vecy)
@@ -45,3 +53,8 @@ def rayCaster(grid, source, triangles_cpp, vertices, source2, fr, offset, veca, 
                 # print cx, bx, ax0
                 # print m / veca.norm(), n / vecb.norm()
                 # plotP(ax, p)
+            else:
+                coords.append(None)
+        else:
+            coords.append(None)
+    return coords

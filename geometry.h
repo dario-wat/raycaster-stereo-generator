@@ -65,6 +65,7 @@ struct FakeRect {
     const Triangle t1, t2;
     FakeRect(const Vector &offset, const Vector &vec_x, const Vector &vec_y)
         : t1(offset, offset+vec_x, offset+vec_x+vec_y), t2(offset, offset+vec_y, offset+vec_x+vec_y) {}
+    Vector origin() const { return t1.a; }
 };
 
 // Smart functions
@@ -75,8 +76,13 @@ boost::python::list create_grid(
     int width, int height, const Vector &vec_x, const Vector &vec_y, const Vector &offset);
 boost::python::tuple intersect_ray_fakerect(const Ray &r, const FakeRect &fr);
 boost::python::tuple intersect_ray_scene(const Ray &r, const boost::python::list &triangles);
-bool intersects_scene(const Ray &r, const boost::python::list &triangles);
-
+bool intersects_scene(const Ray &r, const boost::python::list &triangles, int ignore_idx);
+// boost::python::list raycast(
+//     const boost::python::list &grid,
+//     const Vector &source,
+//     const boost::python::list &scene_triangles,
+//     const Vector &drain,
+//     const FakeRect &drain_rect);
 }
 
 // boost export of the stuff
@@ -103,7 +109,10 @@ BOOST_PYTHON_MODULE(geometry_cpp) {
         .def_readonly("a", &ster::Triangle::a)
         .def_readonly("b", &ster::Triangle::b)
         .def_readonly("c", &ster::Triangle::c);
-    class_<ster::FakeRect>("FakeRect", init<ster::Vector, ster::Vector, ster::Vector>());
+    class_<ster::FakeRect>("FakeRect", init<ster::Vector, ster::Vector, ster::Vector>())
+        .def_readonly("t1", &ster::FakeRect::t1)
+        .def_readonly("t2", &ster::FakeRect::t2)
+        .def("origin", &ster::FakeRect::origin);
     def("intersect_ray_triangle", ster::intersect_ray_triangle);
     def("rotate_3d", ster::rotate_3d);
     def("create_grid", ster::create_grid);
