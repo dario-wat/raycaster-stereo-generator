@@ -9,7 +9,7 @@ from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 import rcutils
 import geometry
 
-from geometry_cpp import intersect_ray_triangle, rotate_3d, Vector, Ray, Triangle, FakeRect, create_grid
+from geometry_cpp import intersect_ray_triangle, rotate_3d, Vector, Ray, Triangle, FakeRect, create_grid, raycast
 
 def plotP(ax, p):
     ax.plot([p[0]], [p[1]], 'o', zs=[p[2]])
@@ -96,6 +96,7 @@ if __name__ == '__main__':
     # The actual raycasting
     start = time.time()
     coords = geometry.rayCaster(grid, source, triangles_cpp, source2, drainRectangle, veca, vecb, ax)
+    # coords = raycast(grid, source, triangles_cpp, source2, drainRectangle)
     print len(coords), len(grid), widthPxl*heightPxl
     print time.time() - start
 

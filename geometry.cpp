@@ -194,3 +194,45 @@ bool ster::intersects_scene(const ster::Ray &r, const boost::python::list &trian
     }
     return false;
 }
+
+boost::python::list ster::raycast(
+        const boost::python::list &grid,
+        const ster::Vector &source,
+        const boost::python::list &scene_triangles,
+        const ster::Vector &drain,
+        const ster::FakeRect &drain_rect) {
+    boost::python::list coordinates;
+    int n = boost::python::len(grid);
+    for (int i = 0; i < n; i++) {
+        // Find intersection of ray from source and scene
+        ster::Vector grid_point = boost::python::extract<ster::Vector>(grid[i]);
+        ster::Ray source_ray = ster::Ray(source, grid_point);
+        boost::python::tuple inters = ster::intersect_ray_scene(source_ray, scene_triangles);
+        int found_inters = boost::python::extract<int>(inters[0]);
+        if (found_inters != 1) {
+            coordinates.append(NONE);
+            continue;
+        }
+
+        // Find intersection in the drain grid from scene to drain
+        ster::Vector inters_point = boost::python::extract<ster::Vector>(inters[1]);
+        ster::Ray drain_ray = ster::Ray(inters_point, drain);
+        boost::python::tuple drain_rect_inters = ster::intersect_ray_fakerect(drain_ray, drain_rect);
+        int found_drain_inters = boost::python::extract<int>(drain_rect_inters[0]);
+        if (found_drain_inters != 1) {
+            coordinates.append(NONE);
+            continue;
+        }
+
+        // Check if backprojected ray is occluded by something in the scene
+        int triangle_idx = boost::python::extract<int>(inters[2]);
+        if (ster::intersects_scene(drain_ray, scene_triangles, triangle_idx)) {
+            coordinates.append(NONE);
+            continue;
+        }
+
+        ster::Vector drain_rect_inters_point = boost::python::extract<ster::Vector>(drain_rect_inters[1]);
+        coordinates.append(drain_rect_inters_point);
+    }
+    return coordinates;
+}
