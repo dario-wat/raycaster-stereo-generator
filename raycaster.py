@@ -23,9 +23,6 @@ if __name__ == '__main__':
     
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
-    vertices = np.vstack((vertices, [[2, 2, -0.328], [2, -2, -0.328], [-2, -2, -0.328], [-2, 2, -0.328]]))
-    i = len(vertices)
-    triangles = np.vstack((triangles, [[i-4, i-3, i-2], [i-4, i-2, i-1]]))
     collection = rcutils.createCollection(vertices, triangles)
     ax.add_collection3d(Poly3DCollection(collection, facecolors='0.75', edgecolors='k'))
 
