@@ -195,6 +195,12 @@ bool ster::intersects_scene(const ster::Ray &r, const boost::python::list &trian
     return false;
 }
 
+// Shoots rays from the source through the grid and intersects them with the scene. Each
+// ray that is successfully intersected with the scene is then backprojected towards the drain
+// and intersected with the drain rectangle. If there is no intersection or the ray is occluded
+// on its way by other triangles in the scene, None is added as a coordinate. Otherwise
+// the intersected coordinate of the back ray and drain triangle is added to the list.
+// These points can then be further modified to reflect image coordinates.
 boost::python::list ster::raycast(
         const boost::python::list &grid,
         const ster::Vector &source,
@@ -235,4 +241,41 @@ boost::python::list ster::raycast(
         coordinates.append(drain_rect_inters_point);
     }
     return coordinates;
+}
+
+// Given 3d coordinates (that lay in the same plane) and the definitin of basis with origin
+// and 2 scaled orthogonal vectors, it will return a list of coordinates in 2d scaled
+// according to scaled basis
+boost::python::list ster::convert_coordinates_2d(
+        const boost::python::list &coordinates,
+        const ster::Vector &drain_rect_origin,
+        const ster::Vector &scaled_basis_x,
+        const ster::Vector &scaled_basis_y) {
+    // 3d basis definition
+    ster::Vector basis_x = scaled_basis_x.normalize();
+    ster::Vector basis_y = scaled_basis_y.normalize();
+    double ax = basis_x[0], ay = basis_x[1], az = basis_x[2];
+    double bx = basis_y[0], by = basis_y[1], bz = basis_y[2];
+    double m_denom = (ay - by*ax/bx), n_denom = (by - ay*bx/ax);
+    double bxy = by/bx, axy = ay/ax;
+
+    boost::python::list coordinates_2d;
+    int n = boost::python::len(coordinates);
+    for (int i = 0; i < n; i++) {
+        if (coordinates[i] == NONE) {
+            coordinates_2d.append(NONE);
+            continue;
+        }
+
+        // Point that needs to be written in given basis
+        ster::Vector rect_point = boost::python::extract<ster::Vector>(coordinates[i]);
+        ster::Vector translatedRectPoint = rect_point - drain_rect_origin;
+        double cx = translatedRectPoint[0], cy = translatedRectPoint[1], cz = translatedRectPoint[2];
+
+        // Derived magic :D
+        double m = (cy - cx*bxy) / m_denom;
+        double n = (cy - cx*axy) / n_denom;
+        coordinates_2d.append(tuple_(m, n));
+    }
+    return coordinates_2d;
 }

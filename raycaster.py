@@ -7,19 +7,9 @@ from mpl_toolkits.mplot3d import Axes3D
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
 import rcutils
-import geometry
+from geometry import plotT, plotP, plotL, rayCaster, testCoords
 
-from geometry_cpp import intersect_ray_triangle, rotate_3d, Vector, Ray, Triangle, FakeRect, create_grid, raycast
-
-def plotP(ax, p):
-    ax.plot([p[0]], [p[1]], 'o', zs=[p[2]])
-
-def plotL(ax, a, b):
-    ax.plot([a[0], b[0]], [a[1], b[1]], '-', zs=[a[2], b[2]])
-
-# do for multiple triangles
-def plotT(ax, t):
-    ax.add_collection3d(Poly3DCollection([[t.a, t.b, t.c]], facecolors='#ffaab4', edgecolors='r'))
+from geometry_cpp import convert_coordinates_2d, rotate_3d, Vector, Triangle, FakeRect, create_grid, raycast
 
 def raycaster(source, focalVec, vertVec, horizVec, rotAngle, gridSize, vertices, triangles):
     pass
@@ -95,13 +85,16 @@ if __name__ == '__main__':
 
     # The actual raycasting
     start = time.time()
-    coords = geometry.rayCaster(grid, source, triangles_cpp, source2, drainRectangle, veca, vecb, ax)
-    # coords = raycast(grid, source, triangles_cpp, source2, drainRectangle)
-    print len(coords), len(grid), widthPxl*heightPxl
+    coords = rayCaster(grid, source, triangles_cpp, source2, drainRectangle, veca, vecb, ax)
+    coords2 = raycast(grid, source, triangles_cpp, source2, drainRectangle)
+    # print len(coords), len(grid), widthPxl*heightPxl, len(coords2)
+
+    coords3 = convert_coordinates_2d(coords2, drainRectangle.origin(), veca, vecb)
     print time.time() - start
+
+    # print testCoords(coords, coords3)
 
     ax.set_xlim3d(-2, 2)
     ax.set_ylim3d(-2, 2)
     ax.set_zlim3d(-2, 2)
     plt.show()
-

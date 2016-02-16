@@ -83,6 +83,12 @@ boost::python::list raycast(
     const boost::python::list &scene_triangles,
     const Vector &drain,
     const FakeRect &drain_rect);
+boost::python::list convert_coordinates_2d(
+    const boost::python::list &coordinates,
+    const Vector &drain_rect_origin,
+    const Vector &scaled_basis_x,
+    const Vector &scaled_basis_y);
+
 }
 
 // boost export of the stuff
@@ -120,6 +126,7 @@ BOOST_PYTHON_MODULE(geometry_cpp) {
     def("intersect_ray_scene", ster::intersect_ray_scene);
     def("intersects_scene", ster::intersects_scene);
     def("raycast", ster::raycast);
+    def("convert_coordinates_2d", ster::convert_coordinates_2d);
 }
 
 #endif
