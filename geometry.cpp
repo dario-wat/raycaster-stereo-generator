@@ -2,12 +2,11 @@
 
 #include <sstream>
 #include <iomanip>
+#include <iostream>
 #include <cmath>
 #include <boost/python/tuple.hpp>
 #include <boost/python/object.hpp>
 #include <boost/python/list.hpp>
-
-#include <iostream>
 
 const ster::Vector ster::Vector::ZERO = ster::Vector(0.0, 0.0, 0.0);
 static const boost::python::object NONE = boost::python::object();
@@ -133,4 +132,60 @@ boost::python::list ster::create_grid(
         }
     }
     return list;
+}
+
+// Intersects a ray and a fake rectangle which is defined with 2 triangles
+boost::python::tuple ster::intersect_ray_fakerect(const ster::Ray &r, const ster::FakeRect &fr) {
+    boost::python::tuple inter1 = ster::intersect_ray_triangle(r, fr.t1);
+    boost::python::tuple inter2 = ster::intersect_ray_triangle(r, fr.t2);
+    int f1 = boost::python::extract<int>(inter1[0]);
+    int f2 = boost::python::extract<int>(inter2[0]);
+    if (f1 == 1 && f2 == 1) {
+        throw "Should not have both triangle intersections";
+    }
+    if (f1 == 1) {
+        return inter1;
+    }
+    return inter2;
+}
+
+// Finds an intersection between a ray and a scene. If the scene is setup correctly there should
+// always be at least 1 intersection. Since ther can be more, the function will return
+// the closest intersection.
+boost::python::tuple ster::intersect_ray_scene(const ster::Ray &r, const boost::python::list &triangles) {
+    int n = boost::python::len(triangles);
+    double min_dist = std::numeric_limits<double>::max();
+    boost::python::tuple curr_inters = boost::python::make_tuple(0, NONE, -1);
+    for (int i = 0; i < n; i++) {
+        ster::Triangle t = boost::python::extract<ster::Triangle>(triangles[i]);
+        boost::python::tuple inters = ster::intersect_ray_triangle(r, t);
+        int f = boost::python::extract<int>(inters[0]);
+        if (f != 1) {
+            continue;
+        }
+        ster::Vector inter_point = boost::python::extract<ster::Vector>(inters[1]);
+        double dist = (r.a - inter_point).norm();       // this is actually squared distance
+        if (dist > min_dist) {
+            continue;
+        }
+        min_dist = dist;
+        curr_inters = boost::python::make_tuple(f, inters[1], i);
+    }
+    return curr_inters;
+}
+
+// Simpler version of intersect_ray_scene which just checks if the ray intersects any
+// triangle in the scene. This is also faster since it can finish earlier (if an intersection
+// is found) and also does not need to perform distance measuring;
+bool ster::intersects_scene(const ster::Ray &r, const boost::python::list &triangles) {
+    int n = boost::python::len(triangles);
+    for (int i = 0; i < n; i++) {
+        ster::Triangle t = boost::python::extract<ster::Triangle>(triangles[i]);
+        boost::python::tuple inters = ster::intersect_ray_triangle(r, t);
+        int f = boost::python::extract<int>(inters[0]);
+        if (f == 1) {
+            return true;
+        }
+    }
+    return false;
 }

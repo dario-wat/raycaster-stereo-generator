@@ -9,7 +9,7 @@ from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 import rcutils
 import geometry
 
-from geometry_cpp import intersect_ray_triangle, rotate_3d, Vector, Ray, Triangle, create_grid
+from geometry_cpp import intersect_ray_triangle, rotate_3d, Vector, Ray, Triangle, FakeRect, create_grid
 
 def plotP(ax, p):
     ax.plot([p[0]], [p[1]], 'o', zs=[p[2]])
@@ -17,6 +17,7 @@ def plotP(ax, p):
 def plotL(ax, a, b):
     ax.plot([a[0], b[0]], [a[1], b[1]], '-', zs=[a[2], b[2]])
 
+# do for multiple triangles
 def plotT(ax, t):
     ax.add_collection3d(Poly3DCollection([[t.a, t.b, t.c]], facecolors='#ffaab4', edgecolors='r'))
 
@@ -32,77 +33,64 @@ if __name__ == '__main__':
     
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
+    vertices = np.vstack((vertices, [[2, 2, -0.328], [2, -2, -0.328], [-2, -2, -0.328], [-2, 2, -0.328]]))
+    i = len(vertices)
+    triangles = np.vstack((triangles, [[i-4, i-3, i-2], [i-4, i-2, i-1]]))
     collection = rcutils.createCollection(vertices, triangles)
-    # ax.add_collection3d(Poly3DCollection(collection, facecolors='0.75', edgecolors='k'))
+    ax.add_collection3d(Poly3DCollection(collection, facecolors='0.75', edgecolors='k'))
 
-    widthPxl = 10
-    heightPxl = 6
+    widthPxl = 32
+    heightPxl = 24
     widthChip = 1.6
     heightChip = 1.2
     focalLength = 1.5
+    rotAngle = np.pi / 4
 
     focVec = Vector(0., 0., -1.) * focalLength
     veca = Vector(1., 0., 0.) * (widthChip / widthPxl)
     vecb = Vector(0., 1., 0.) * (heightChip / heightPxl)
     source = Vector(0., 0., 3.)
 
-    # veca, vecb = raycaster(source, focVec, vecb, veca, np.pi/4, None, None, None)
-    veca, vecb = rotate_3d(focVec, np.pi/4, [veca, vecb])
+    veca, vecb = rotate_3d(focVec, rotAngle, [veca, vecb])
     veca = veca / veca.norm() * widthChip / widthPxl
     vecb = vecb / vecb.norm() * heightChip / heightPxl
     offset = source + focVec - veca * (widthPxl-1) / 2. - vecb * (heightPxl-1) / 2.
 
     grid = create_grid(widthPxl, heightPxl, veca, vecb, offset)
     xs, ys, zs = zip(*grid)
-    ax.plot(xs, ys, 'y.', zs=zs)
+    # ax.plot(xs, ys, 'y.', zs=zs)
 
     # plotP(ax, source)
     # plotL(ax, source, source + focVec)
     # plotL(ax, source, source + focVec + veca * widthPxl / 2)
     # plotL(ax, source, source + focVec + vecb * heightPxl / 2)
 
-    source2 = Vector(0., 1., 3.)
+    source2 = Vector(1.2, 1.2, 3.)
     focVec2 = Vector(0., 0., -1.) * focalLength
-    # veca, vecb = rotate_3d(focVec2, np.pi/4, [veca, vecb])
+    # veca, vecb = rotate_3d(focVec2, rotAngle, [veca, vecb])
     veca = veca / veca.norm() * widthChip / widthPxl
     vecb = vecb / vecb.norm() * heightChip / heightPxl
     offset = source2 + focVec2 - veca * widthPxl / 2. - vecb * heightPxl / 2.
     grid2 = create_grid(widthPxl, heightPxl, veca, vecb, offset)
     xs, ys, zs = zip(*grid2)
-    # ax.plot(xs, ys, 'b.', zs=zs)
+    ax.plot(xs, ys, 'b.', zs=zs)
     # plotP(ax, source2)
     # plotL(ax, source2, source2 + focVec2)
     # plotL(ax, source2, source2 + focVec2 + veca * widthPxl / 2)
     # plotL(ax, source2, source2 + focVec2 + vecb * heightPxl / 2)
     
-    # TODO something is wrong with this intersection
     tri1 = Triangle(offset, offset + veca*(widthPxl-1), offset + veca*(widthPxl-1) + vecb*(heightPxl-1))
-    tri2 = Triangle(offset, offset + veca*(heightPxl-1), offset + veca*(widthPxl-1) + vecb*(heightPxl-1))
+    tri2 = Triangle(offset, offset + vecb*(heightPxl-1), offset + veca*(widthPxl-1) + vecb*(heightPxl-1))
+    fr = FakeRect(offset, veca*(widthPxl-1), vecb*(heightPxl-1))
     # plotT(ax, tri1)
+    # plotT(ax, tri2)
+
+    triangles_cpp = []
+    for t in triangles:
+        triangles_cpp.append(Triangle(Vector(*vertices[t[0]]), Vector(*vertices[t[1]]), Vector(*vertices[t[2]])))
 
     start = time.time()
-    for po in grid:
-        # print p
-        # ray = np.vstack([list(source), po])
-        # ax.plot(ray[:,0], ray[:,1], zs=ray[:,2])
-        ray_cpp = Ray(Vector(*source), Vector(*po))
-        for t in triangles:
-            triangle_cpp = Triangle(Vector(*vertices[t[0]]), Vector(*vertices[t[1]]), Vector(*vertices[t[2]]))
-            # f, p = rayIntersectTriangle(ray, vertices[t])
-            f, p = intersect_ray_triangle(ray_cpp, triangle_cpp)
-            if f == 1:
-                # ax.add_collection3d(Poly3DCollection([vertices[t]], edgecolors='k'))
-                # plotL(ax, source2, p)
-                intr = Ray(source2, p)
-                ax.plot([source[0], p[0]], [source[1], p[1]], 'r-', zs=[source[2], p[2]])
-                ax.plot([p[0]], [p[1]], 'r.', zs=[p[2]])
-
-                f, p = intersect_ray_triangle(intr, tri1)
-                # if f == 1:
-                    # plotP(ax, p)
-                f, p = intersect_ray_triangle(intr, tri2)
-                # if f == 1:
-                #     plotP(ax, p)
+    geometry.rayCaster(grid, source, triangles_cpp, vertices, source2, fr, offset, veca, vecb, ax)
     
     print time.time() - start
 

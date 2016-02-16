@@ -61,12 +61,21 @@ struct Triangle {
     Triangle(const Vector &a, const Vector &b, const Vector &c) : a(a), b(b), c(c) {}
 };
 
+struct FakeRect {
+    const Triangle t1, t2;
+    FakeRect(const Vector &offset, const Vector &vec_x, const Vector &vec_y)
+        : t1(offset, offset+vec_x, offset+vec_x+vec_y), t2(offset, offset+vec_y, offset+vec_x+vec_y) {}
+};
+
 // Smart functions
 boost::python::tuple intersect_ray_triangle(const Ray &r, const Triangle &t);
 boost::python::list rotate_3d(
     const Vector &rot_axis, double rot_angle, const boost::python::list &vectors);
 boost::python::list create_grid(
     int width, int height, const Vector &vec_x, const Vector &vec_y, const Vector &offset);
+boost::python::tuple intersect_ray_fakerect(const Ray &r, const FakeRect &fr);
+boost::python::tuple intersect_ray_scene(const Ray &r, const boost::python::list &triangles);
+bool intersects_scene(const Ray &r, const boost::python::list &triangles);
 
 }
 
@@ -82,6 +91,7 @@ BOOST_PYTHON_MODULE(geometry_cpp) {
         .def(self - self)
         .def(self * int())
         .def(int() * self)
+        .def(self * self)
         .def("__repr__", &ster::Vector::to_string)
         .def("__getitem__", &ster::Vector::operator[])
         .def("__getitem__", &ster::Vector::get_item_slice)
@@ -93,9 +103,13 @@ BOOST_PYTHON_MODULE(geometry_cpp) {
         .def_readonly("a", &ster::Triangle::a)
         .def_readonly("b", &ster::Triangle::b)
         .def_readonly("c", &ster::Triangle::c);
+    class_<ster::FakeRect>("FakeRect", init<ster::Vector, ster::Vector, ster::Vector>());
     def("intersect_ray_triangle", ster::intersect_ray_triangle);
     def("rotate_3d", ster::rotate_3d);
     def("create_grid", ster::create_grid);
+    def("intersect_ray_fakerect", ster::intersect_ray_fakerect);
+    def("intersect_ray_scene", ster::intersect_ray_scene);
+    def("intersects_scene", ster::intersects_scene);
 }
 
 #endif
