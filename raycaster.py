@@ -2,6 +2,8 @@ import sys
 import time
 import math
 
+import cv2
+import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
@@ -9,10 +11,8 @@ from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 import rcutils
 from geometry import plotT, plotP, plotL, plotG, plotImVs, rayCaster, testCoords
 
-from geometry_cpp import convert_coordinates_2d, rotate_3d, Vector, Triangle, FakeRect, create_grid, raycast
-
-def raycaster(source, focalVec, vertVec, horizVec, rotAngle, gridSize, vertices, triangles):
-    pass
+from geometry_cpp import convert_coordinates_2d, rotate_3d, Vector, Triangle, FakeRect, \
+    create_grid, raycast
 
 # focal length: 5.15 mm
 # sensor width: 2600 pixels
@@ -26,10 +26,10 @@ def raycaster(source, focalVec, vertVec, horizVec, rotAngle, gridSize, vertices,
 ZEROVEC = Vector(0., 0., 0.)
 
 # Intrinsic camera parameters
-widthPxl = 6
-heightPxl = 4
-widthChip = 0.8*2
-heightChip = 0.6*2
+widthPxl = 384
+heightPxl = 288
+widthChip = 0.8
+heightChip = 0.6
 focalLength = 1.5
 widthC = widthChip * (widthPxl-1) / widthPxl
 heightC = heightChip * (heightPxl-1) / heightPxl
@@ -82,19 +82,19 @@ if __name__ == '__main__':
     ax.add_collection3d(Poly3DCollection(collection, facecolors='0.75', edgecolors='k'))
 
     # Source camera
-    rotAngleS = math.pi / 4.
+    rotAngleS = 0
     source = Vector(0., 0., 3.)
     cameraDirS = Vector(0., 0., -1.).normalize()
     focVecS, vecbxs, vecbys, originS = positionCamera(source, cameraDirS, rotAngleS)
     # plotImVs(ax, source, focVecS, vecbxs, vecbys, widthPxl, heightPxl)
     
     grid = create_grid(widthPxl, heightPxl, vecbxs, vecbys, originS)
-    # plotG(ax, grid, 'r')
+    plotG(ax, grid, 'r')
 
     # Drain camera
-    rotAngleD = math.pi/4.
-    drain = Vector(1.1, 1.1, 3.)
-    cameraDirD = Vector(0.5, 0.8, -1.).normalize()
+    rotAngleD = 0
+    drain = Vector(.5, 0., 3.)
+    cameraDirD = Vector(0., 0., -1.).normalize()
     focVecD, vecbxd, vecbyd, originD = positionCamera(drain, cameraDirD, rotAngleD)
     # plotImVs(ax, drain, focVecD, vecbxd, vecbyd, widthPxl, heightPxl)
     
@@ -117,49 +117,30 @@ if __name__ == '__main__':
     start = time.time()
     # coords = rayCaster(grid, source, triangles_cpp, drain, drainRectangle, ax)
     coords2 = raycast(grid, source, triangles_cpp, drain, drainRectangle)
-    # print coords == coords2
-
-    # coords2 = coords
-    ################################
-    st = time.time()
-    planeNormal = vecbxd.cross(vecbyd)
-    desiredNormal = Vector(0,0,1)
-
-    rotAxis = desiredNormal.cross(planeNormal)
-    angle = math.atan2(rotAxis.norm(), planeNormal*desiredNormal)
-    vecf, vecg = rotate_3d(rotAxis, -angle, [vecbxd, vecbyd])
-    vecf, vecg = rotate_3d(desiredNormal, rotAngleD, [vecf, vecg])
-
-    coords2_fil = filter(lambda c: c is not None, coords2)
-    coords2_trans = map(lambda c: c - originD, coords2_fil)
-    rotPoints = rotate_3d(rotAxis, -angle, coords2_trans)
-    rotPoints = rotate_3d(desiredNormal, rotAngleD, rotPoints)
-    # print rotPoint
-    finalc = map(lambda v: (v[0] / vecf[0], v[1] / vecg[1]), rotPoints)
-    # m = rotPoint[0] / vecf[0]
-    # n = rotPoint[1] / vecg[1]
+    print time.time() - start
 
     res = convert_coordinates_2d(coords2, originD, vecbxd, vecbyd, rotAngleD)
-    resf = filter(lambda g: g is not None, res)
-    for a,b in zip(finalc, resf):
-        print a == b
-    print p == finalc
-    print 'Time: ', time.time() - st
-    # for p in finalc:
+    # print time.time() - start
+    # for p in filter(lambda g: g is not None, res):
     #     print p
 
 
-    ################################
+    origImPxls = np.mgrid[0:widthPxl, 0:heightPxl].reshape(2, widthPxl*heightPxl).T
+    virtualImPxl = np.array(res)
 
+    img = cv2.imread(sys.argv[2])
+    cv2.imshow('Nice one', img)
+    img2 = np.zeros((heightPxl, widthPxl), np.uint8)
+    
+    for i in xrange(len(virtualImPxl)):
+        if virtualImPxl[i] is None:
+            continue
+        j, k = virtualImPxl[i]
+        y, x = origImPxls[i]
+        img2[k,j] = img[y,x,0]
+    cv2.imshow('Nicer one', img2)
 
-    # print len(coords), len(grid), widthPxl*heightPxl, len(coords2)
-
-    # print coords
-    # coords3 = convert_coordinates_2d(coords2, originD, vecbxd, vecbyd)
-    print time.time() - start
-    # print coords3
-
-    # print testCoords(coords, coords3)
+    # print virtualImPxl.shape, origImPxls.shape
 
     ax.set_xlim3d(-2, 2)
     ax.set_ylim3d(-2, 2)

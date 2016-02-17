@@ -47,7 +47,7 @@ def rayCaster(grid, source, sceneTriangles, drain, drainRect, axp):
             continue
         
         coords.append(intersBackPoint)
-        # plotP(axp, intersBackPoint, 'o')
+        plotP(axp, intersBackPoint, 'o')
     return coords
 
 def testCoords(coords1, coords2):
