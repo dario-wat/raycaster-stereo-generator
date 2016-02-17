@@ -94,7 +94,7 @@ std::string ster::Vector::to_string() const {
     return ss.str();
 }
 
-// Rotates vectors and points around the axis of rotation.
+// Rotates vectors and points around the axis of rotation. Skips None.
 // rotAxis     - the axis of rotation (it goes through the origin and is normalized)
 // rotAngle    - angle of rotation
 // vectors     - a list of vectors to rotate or points that need to be translated around the
@@ -102,6 +102,7 @@ std::string ster::Vector::to_string() const {
 //               would not work otherwise.
 boost::python::list ster::rotate_3d(
         const ster::Vector &rot_axis, double rot_angle, const boost::python::list &vectors) {
+    assert(rot_axis != ster::Vector::ZERO);
     ster::Vector rot_ax = rot_axis.normalize();
     double s = sin(rot_angle / 2.), c = cos(rot_angle / 2.);
     double q0 = c, q1 = s*rot_ax[0], q2 = s*rot_ax[1], q3 = s*rot_ax[2];
@@ -115,6 +116,10 @@ boost::python::list ster::rotate_3d(
     boost::python::list list;
     int n = boost::python::len(vectors);
     for (int i = 0; i < n; i++) {
+        if (vectors[i] == NONE) {
+            list.append(NONE);
+            continue;
+        }
         ster::Vector vec = boost::python::extract<ster::Vector>(vectors[i]);
         list.append(ster::Vector(va*vec, vb*vec, vc*vec));
     }
@@ -243,39 +248,48 @@ boost::python::list ster::raycast(
     return coordinates;
 }
 
-// Given 3d coordinates (that lay in the same plane) and the definitin of basis with origin
-// and 2 scaled orthogonal vectors, it will return a list of coordinates in 2d scaled
-// according to scaled basis
+// Moves the rectangle to the origin. Rotates the rectangle so that it is parallel
+// with x-y plane. And then splits each points into 2 vectors.
 boost::python::list ster::convert_coordinates_2d(
         const boost::python::list &coordinates,
         const ster::Vector &drain_rect_origin,
         const ster::Vector &scaled_basis_x,
-        const ster::Vector &scaled_basis_y) {
-    // 3d basis definition
-    ster::Vector basis_x = scaled_basis_x.normalize();
-    ster::Vector basis_y = scaled_basis_y.normalize();
-    double ax = basis_x[0], ay = basis_x[1], az = basis_x[2];
-    double bx = basis_y[0], by = basis_y[1], bz = basis_y[2];
-    double m_denom = (ay - by*ax/bx), n_denom = (by - ay*bx/ax);
-    double bxy = by/bx, axy = ay/ax;
+        const ster::Vector &scaled_basis_y,
+        double rot_angle) {
+    ster::Vector plane_normal = scaled_basis_x.cross(scaled_basis_y);
+    ster::Vector desired_normal = ster::Vector(0, 0, 1);
+    ster::Vector rot_axis = desired_normal.cross(plane_normal);
+    double correction_angle = atan2(rot_axis.norm(), plane_normal*desired_normal);
 
-    boost::python::list coordinates_2d;
+    boost::python::list basis_vectors;
+    basis_vectors.append(scaled_basis_x);
+    basis_vectors.append(scaled_basis_y);
+    boost::python::list corrected_bases = ster::rotate_3d(rot_axis, -correction_angle, basis_vectors);
+    corrected_bases = ster::rotate_3d(desired_normal, rot_angle, corrected_bases);
+
     int n = boost::python::len(coordinates);
+    boost::python::list rotated_points;
     for (int i = 0; i < n; i++) {
         if (coordinates[i] == NONE) {
-            coordinates_2d.append(NONE);
+            rotated_points.append(NONE);
             continue;
         }
-
-        // Point that needs to be written in given basis
-        ster::Vector rect_point = boost::python::extract<ster::Vector>(coordinates[i]);
-        ster::Vector translatedRectPoint = rect_point - drain_rect_origin;
-        double cx = translatedRectPoint[0], cy = translatedRectPoint[1], cz = translatedRectPoint[2];
-
-        // Derived magic :D
-        double m = (cy - cx*bxy) / m_denom;
-        double n = (cy - cx*axy) / n_denom;
-        coordinates_2d.append(tuple_(m, n));
+        ster::Vector point = boost::python::extract<ster::Vector>(coordinates[i]);
+        rotated_points.append(point - drain_rect_origin);
     }
-    return coordinates_2d;
+    rotated_points = ster::rotate_3d(rot_axis, -correction_angle, rotated_points);
+    rotated_points = ster::rotate_3d(desired_normal, rot_angle, rotated_points);
+    
+    ster::Vector vec_x = boost::python::extract<ster::Vector>(corrected_bases[0]);
+    ster::Vector vec_y = boost::python::extract<ster::Vector>(corrected_bases[1]);
+    double xlen = vec_x[0];
+    double ylen = vec_y[1];
+    for (int i = 0; i < n; i++) {
+        if (rotated_points[i] == NONE) {
+            continue;
+        }
+        ster::Vector point = boost::python::extract<ster::Vector>(rotated_points[i]);
+        rotated_points[i] = tuple_(point[0] / xlen, point[1] / ylen);
+    }
+    return rotated_points;
 }

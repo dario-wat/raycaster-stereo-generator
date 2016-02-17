@@ -65,7 +65,6 @@ struct FakeRect {
     const Triangle t1, t2;
     FakeRect(const Vector &offset, const Vector &vec_x, const Vector &vec_y)
         : t1(offset, offset+vec_x, offset+vec_x+vec_y), t2(offset, offset+vec_y, offset+vec_x+vec_y) {}
-    Vector origin() const { return t1.a; }
 };
 
 // Smart functions
@@ -87,7 +86,8 @@ boost::python::list convert_coordinates_2d(
     const boost::python::list &coordinates,
     const Vector &drain_rect_origin,
     const Vector &scaled_basis_x,
-    const Vector &scaled_basis_y);
+    const Vector &scaled_basis_y,
+    double rot_angle);
 
 }
 
@@ -104,12 +104,15 @@ BOOST_PYTHON_MODULE(geometry_cpp) {
         .def(self * int())
         .def(int() * self)
         .def(self * self)
+        .def(self == self)
         .def("__repr__", &ster::Vector::to_string)
         .def("__getitem__", &ster::Vector::operator[])
         .def("__getitem__", &ster::Vector::get_item_slice)
         .def("__iter__", range(&ster::Vector::cbegin, &ster::Vector::cend))
         .def("__len__", &ster::Vector::size)
-        .def("norm", &ster::Vector::norm);
+        .def("norm", &ster::Vector::norm)
+        .def("normalize", &ster::Vector::normalize)
+        .def("cross", &ster::Vector::cross);
     class_<ster::Ray>("Ray", init<ster::Vector, ster::Vector>());
     class_<ster::Triangle>("Triangle", init<ster::Vector, ster::Vector, ster::Vector>())
         .def_readonly("a", &ster::Triangle::a)
@@ -117,8 +120,7 @@ BOOST_PYTHON_MODULE(geometry_cpp) {
         .def_readonly("c", &ster::Triangle::c);
     class_<ster::FakeRect>("FakeRect", init<ster::Vector, ster::Vector, ster::Vector>())
         .def_readonly("t1", &ster::FakeRect::t1)
-        .def_readonly("t2", &ster::FakeRect::t2)
-        .def("origin", &ster::FakeRect::origin);
+        .def_readonly("t2", &ster::FakeRect::t2);
     def("intersect_ray_triangle", ster::intersect_ray_triangle);
     def("rotate_3d", ster::rotate_3d);
     def("create_grid", ster::create_grid);

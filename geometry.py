@@ -1,5 +1,5 @@
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
-from geometry_cpp import intersects_scene, intersect_ray_scene, Ray, intersect_ray_fakerect
+from geometry_cpp import intersects_scene, intersect_ray_scene, Ray, intersect_ray_fakerect, rotate_3d
 
 def plotP(ax, p, marker='.', color=None):
     """Plot point"""
@@ -14,14 +14,20 @@ def plotT(ax, t):
     """Plot triangle"""
     ax.add_collection3d(Poly3DCollection([[t.a, t.b, t.c]], facecolors='#ffaab4', edgecolors='r'))
 
-def rayCaster(grid, source, sceneTriangles, drain, drainRect, veca, vecb, axp):
-    """Seems complicated, read raycast and convert_coordinates_2d in cpp."""
-    # basis computations
-    vecx = veca / veca.norm()
-    vecy = vecb / vecb.norm()
-    ax, ay, az = vecx
-    bx, by, bz = vecy
-    
+def plotG(ax, grid, color=None):
+    """Plots a grid of points"""
+    xs, ys, zs = zip(*grid)
+    ax.plot(xs, ys, '.', zs=zs, color=color)
+
+def plotImVs(ax, point, focvec, baseX, baseY, widthPxl, heightPxl, color=[None, None, None, None]):
+    plotP(ax, point, color[0])
+    plotL(ax, point, point + focvec, color[1])
+    plotL(ax, point, point + focvec + baseX * (widthPxl-1) / 2., color[2])
+    plotL(ax, point, point + focvec + baseY * (heightPxl-1) / 2., color[3])
+
+def rayCaster(grid, source, sceneTriangles, drain, drainRect, axp):
+    """Seems complicated, read raycast in cpp. This one is still
+    here so that some drawings can be made."""
     coords = []
     for gridPoint in grid:
         ray = Ray(source, gridPoint)
@@ -40,20 +46,8 @@ def rayCaster(grid, source, sceneTriangles, drain, drainRect, veca, vecb, axp):
             coords.append(None)
             continue
         
-        # In cpp this is implemented in separate function to separate logic
-        # here it is used for debugging purposes
-        translatedRectPoint = intersBackPoint - drainRect.origin()
-        cx, cy, cz = translatedRectPoint
-        m = (cy - by*cx/bx) / (ay - by*ax/bx)
-        n = (cy - ay*cx/ax) / (by - ay*bx/ax)
-        coords.append((m, n))
-        
-        # plotL(axp, offset, offset + n*vecy)
-        # plotL(axp, offset + n*vecy, offset + m*vecx + n*vecy)
-        # plotL(axp, offset, offset + veca)
-        # plotL(axp, offset, offset + vecb)
-        # print m / veca.norm(), n / vecb.norm()
-        # plotP(axp, intersBackPoint)
+        coords.append(intersBackPoint)
+        # plotP(axp, intersBackPoint, 'o')
     return coords
 
 def testCoords(coords1, coords2):
