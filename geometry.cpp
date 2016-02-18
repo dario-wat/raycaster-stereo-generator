@@ -3,6 +3,7 @@
 #include <sstream>
 #include <iomanip>
 #include <iostream>
+#include <unordered_set>
 #include <cmath>
 #include <boost/python/tuple.hpp>
 #include <boost/python/object.hpp>
@@ -204,6 +205,15 @@ bool ster::intersects_scene(const ster::Ray &r, const boost::python::list &trian
     return false;
 }
 
+template <typename T>
+void fill_set(std::unordered_set<T> &set, const boost::python::list &li) {
+    int n = boost::python::len(li);
+    for (int i = 0; i < n; i++) {
+        T item = boost::python::extract<T>(li[i]);
+        set.insert(item);
+    }
+}
+
 // Shoots rays from the source through the grid and intersects them with the scene. Each
 // ray that is successfully intersected with the scene is then backprojected towards the drain
 // and intersected with the drain rectangle. If there is no intersection or the ray is occluded
@@ -215,9 +225,13 @@ boost::python::tuple ster::raycast(
         const ster::Vector &source,
         const boost::python::list &scene_triangles,
         const ster::Vector &drain,
-        const ster::FakeRect &drain_rect) {
+        const ster::FakeRect &drain_rect,
+        const boost::python::list background_triangles) {
+    std::unordered_set<int> bg_triangles;
+    fill_set(bg_triangles, background_triangles);
     boost::python::list coordinates;
     boost::python::list depths_source;
+    boost::python::list foreground;
     int n = boost::python::len(grid);
     for (int i = 0; i < n; i++) {
         // Find intersection of ray from source and scene
@@ -227,8 +241,16 @@ boost::python::tuple ster::raycast(
         int found_inters = boost::python::extract<int>(inters[0]);
         if (found_inters != 1) {
             coordinates.append(NONE);
+            foreground.append(false);
             depths_source.append(0.0);
             continue;
+        }
+
+        int triangle_idx = boost::python::extract<int>(inters[2]);
+        if (bg_triangles.find(triangle_idx) != bg_triangles.end()) {
+            foreground.append(false);
+        } else {
+            foreground.append(true);
         }
 
         // Find intersection in the drain grid from scene to drain
@@ -243,7 +265,6 @@ boost::python::tuple ster::raycast(
         }
 
         // Check if backprojected ray is occluded by something in the scene
-        int triangle_idx = boost::python::extract<int>(inters[2]);
         if (ster::intersects_scene(drain_ray, scene_triangles, triangle_idx)) {
             coordinates.append(NONE);
             continue;
@@ -252,7 +273,7 @@ boost::python::tuple ster::raycast(
         ster::Vector drain_rect_inters_point = boost::python::extract<ster::Vector>(drain_rect_inters[1]);
         coordinates.append(drain_rect_inters_point);
     }
-    return boost::python::make_tuple(coordinates, depths_source);
+    return boost::python::make_tuple(coordinates, depths_source, foreground);
 }
 
 // Finds the depth from source and shooting through grid with points in the scene.

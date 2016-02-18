@@ -81,7 +81,8 @@ boost::python::tuple raycast(
     const Vector &source,
     const boost::python::list &scene_triangles,
     const Vector &drain,
-    const FakeRect &drain_rect);
+    const FakeRect &drain_rect,
+    const boost::python::list background_triangles);
 boost::python::list convert_coordinates_2d(
     const boost::python::list &coordinates,
     const Vector &drain_rect_origin,

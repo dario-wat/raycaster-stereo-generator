@@ -180,7 +180,7 @@ if __name__ == '__main__':
     # The actual raycasting
     start = time.time()
     # coords2 = rayCaster(grid, source, triangles_cpp, drain, drainRectangle, ax)
-    coords, depthS = raycast(grid, source, triangles_cpp, drain, drainRectangle)
+    coords, depthS, foreground = raycast(grid, source, triangles_cpp, drain, drainRectangle, [184, 185])    # HACK
     print 'Raycast time:', time.time() - start
     resultCoords = convert_coordinates_2d(coords, originD, vecbxd, vecbyd, rotAngleD)
     virtualImg, disparityMap, virtualVisual, occlusionMask = \
@@ -197,6 +197,9 @@ if __name__ == '__main__':
 
     depthS2d = np.array(depthS).reshape([widthPxl, heightPxl]).T
     cv2.imshow('Depth - virtual image', 1. - depthS2d / depthS2d.flatten().max())
+
+    foreground = np.array(foreground, dtype=np.uint8).reshape([widthPxl, heightPxl]).T * 255
+    cv2.imshow('Foreground', foreground)
 
     # depth to drain, not useful
     # depthD = depth_to_scene(grid2, drain, triangles_cpp)
