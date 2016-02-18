@@ -88,6 +88,10 @@ boost::python::list convert_coordinates_2d(
     const Vector &scaled_basis_x,
     const Vector &scaled_basis_y,
     double rot_angle);
+boost::python::list depth_to_scene(
+        const boost::python::list &grid,
+        const Vector &source,
+        const boost::python::list &scene_triangles);
 
 }
 
@@ -129,6 +133,7 @@ BOOST_PYTHON_MODULE(geometry_cpp) {
     def("intersects_scene", ster::intersects_scene);
     def("raycast", ster::raycast);
     def("convert_coordinates_2d", ster::convert_coordinates_2d);
+    def("depth_to_scene", ster::depth_to_scene);
 }
 
 #endif

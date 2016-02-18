@@ -218,7 +218,6 @@ boost::python::tuple ster::raycast(
         const ster::FakeRect &drain_rect) {
     boost::python::list coordinates;
     boost::python::list depths_source;
-    boost::python::list depths_drain;
     int n = boost::python::len(grid);
     for (int i = 0; i < n; i++) {
         // Find intersection of ray from source and scene
@@ -229,7 +228,6 @@ boost::python::tuple ster::raycast(
         if (found_inters != 1) {
             coordinates.append(NONE);
             depths_source.append(0.0);
-            depths_drain.append(0.0);
             continue;
         }
 
@@ -240,9 +238,7 @@ boost::python::tuple ster::raycast(
         boost::python::tuple drain_rect_inters = ster::intersect_ray_fakerect(drain_ray, drain_rect);
         int found_drain_inters = boost::python::extract<int>(drain_rect_inters[0]);
         if (found_drain_inters != 1) {
-            // std::cout << i << " ";
             coordinates.append(NONE);
-            depths_drain.append(0.0);
             continue;
         }
 
@@ -250,15 +246,37 @@ boost::python::tuple ster::raycast(
         int triangle_idx = boost::python::extract<int>(inters[2]);
         if (ster::intersects_scene(drain_ray, scene_triangles, triangle_idx)) {
             coordinates.append(NONE);
-            depths_drain.append(0.0);
             continue;
         }
 
         ster::Vector drain_rect_inters_point = boost::python::extract<ster::Vector>(drain_rect_inters[1]);
         coordinates.append(drain_rect_inters_point);
-        depths_drain.append(sqrt((drain-inters_point)*(drain-inters_point)));
     }
-    return boost::python::make_tuple(coordinates, depths_source, depths_drain);
+    return boost::python::make_tuple(coordinates, depths_source);
+}
+
+// Finds the depth from source and shooting through grid with points in the scene.
+boost::python::list ster::depth_to_scene(
+        const boost::python::list &grid,
+        const ster::Vector &source,
+        const boost::python::list &scene_triangles) {
+    boost::python::list depths;
+    int n = boost::python::len(grid);
+    for (int i = 0; i < n; i++) {
+        // Find intersection of ray from source and scene
+        ster::Vector grid_point = boost::python::extract<ster::Vector>(grid[i]);
+        ster::Ray source_ray = ster::Ray(source, grid_point);
+        boost::python::tuple inters = ster::intersect_ray_scene(source_ray, scene_triangles);
+        int found_inters = boost::python::extract<int>(inters[0]);
+        if (found_inters != 1) {
+            depths.append(0.0);
+            continue;
+        }
+
+        ster::Vector inters_point = boost::python::extract<ster::Vector>(inters[1]);
+        depths.append(sqrt((inters_point - source)*(inters_point - source)));
+    }
+    return depths;
 }
 
 // Moves the rectangle to the origin. Rotates the rectangle so that it is parallel

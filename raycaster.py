@@ -12,8 +12,9 @@ import rcutils
 from geometry import plotT, plotP, plotL, plotG, plotImVs, rayCaster, testCoords
 
 from geometry_cpp import convert_coordinates_2d, rotate_3d, Vector, Triangle, FakeRect, \
-    create_grid, raycast
+    create_grid, raycast, depth_to_scene
 
+# Some camera parameters
 # focal length: 5.15 mm
 # sensor width: 2600 pixels
 # sensor height: 1952 pixels
@@ -23,26 +24,18 @@ from geometry_cpp import convert_coordinates_2d, rotate_3d, Vector, Triangle, Fa
 # subsampled width: 656 px
 # focal length in px = 5.15/(0.0014*0.5*(2600/656+1952/488)) = 924
 
+# Constants
 ZEROVEC = Vector(0., 0., 0.)
 N8 = np.array([[-1, -1], [-1, 0], [-1, 1], [0, -1], [0, 1], [1, -1], [1, 0], [1, 1]])
+DEEP_PINK = [147, 20, 255]
+
+# Camera parameters
 Z_HEIGHT = 3.
 X_OFF = -0.2
 Y_OFF = 0
-D = -0.45
+B = 0.45
 TILT = 0.0
 
-# Intrinsic camera parameters
-widthPxl = 384
-heightPxl = 288
-widthChip = 0.0000014 * 2600 #* 1.2
-heightChip = 0.0000014 * 1952 #* 1.2
-focalLength = 0.00515
-widthC = widthChip * (widthPxl-1) / widthPxl
-heightC = heightChip * (heightPxl-1) / heightPxl
-widthP = widthChip / widthPxl
-heightP = heightChip / heightPxl
-
-# Intrinsic calculations that do not depend on camera position
 # Default vector and camera position that is later used to rotate and place image plane
 # easier in 3D space. Includes perpendicular vectors for rotating the side image vectors.
 defaultVecX = Vector(1., 0., 0.)
@@ -50,16 +43,6 @@ defaultVecY = Vector(0., 1., 0.)
 defaultVecDir = Vector(0., 0., -1.)
 perpX = defaultVecDir.cross(defaultVecX)
 perpY = defaultVecDir.cross(defaultVecY)
-
-# Angle between the focal vector and vector that touches the half point of the side
-# of the image. Length of the said vector and the vector itself.
-angleX = math.atan(widthC/2./focalLength)
-angleY = math.atan(heightC/2./focalLength)
-lenX = math.sqrt(focalLength*focalLength + widthC*widthC/4.)
-lenY = math.sqrt(focalLength*focalLength + heightC*heightC/4.)
-imVecX = rotate_3d(perpX, angleX, [defaultVecDir])[0].normalize() * lenX
-imVecY = rotate_3d(perpY, angleY, [defaultVecDir])[0].normalize() * lenY
-focVec = defaultVecDir * focalLength
 
 def positionCamera(point, direction, rotAngle):
     """Highly globally dependent function. Very complicated geometry positioning"""
@@ -73,8 +56,56 @@ def positionCamera(point, direction, rotAngle):
     origin = point + focalVec - vecbx * (widthPxl-1) / 2. - vecby * (heightPxl-1) / 2.
     return focalVec, vecbx, vecby, origin
 
+# TODO very important to add bilinear interpolation
+# TODO add background and foreground mask
+def transformVirtual(widthPxl, heightPxl, backCoords, origImg):
+    """Transforms real image into virtual using the previously raycasted coordinates."""
+    virtualImPxls = np.mgrid[0:widthPxl, 0:heightPxl].reshape(2, widthPxl*heightPxl).T
+    originalImPxls = np.array(backCoords)
+
+    virtualImg = np.zeros((heightPxl, widthPxl), np.uint8)
+    disparityMap = np.zeros((heightPxl, widthPxl), np.float32)
+    virtualVisualImg = np.zeros((heightPxl, widthPxl, 3), np.uint8)
+    occlusionMask = np.zeros((heightPxl, widthPxl), np.uint8)
+    virtualVisualImg[:,:] = DEEP_PINK
+    
+    for i in xrange(widthPxl*heightPxl):
+        x, y = virtualImPxls[i]
+        if originalImPxls[i] is None:
+            occlusionMask[y,x] = 255
+            continue
+        j, k = originalImPxls[i]
+        disparityMap[y,x] = abs(x-j)
+        virtualImg[y,x] = origImg[k,j,0]
+        virtualVisualImg[y,x] = origImg[k,j]
+
+    return virtualImg, disparityMap, virtualVisualImg, occlusionMask
+
+def missingInterpolation(imgOrig, occlusionMask, nIter=1):
+    """Fills in occluded pixels by the mean value of neighbors."""
+    img = np.copy(imgOrig)
+    height, width = occlusionMask.shape
+    occlusionMaskCopy = np.copy(occlusionMask)
+    for _ in xrange(nIter):
+        imgCopy = np.copy(img)
+        interCoords = np.array(occlusionMaskCopy.nonzero()).T
+        occlusionMaskCopy2 = np.copy(occlusionMaskCopy)
+        for y, x in interCoords:
+            sumFilter = 0
+            count = 0
+            for dy, dx in N8:
+                xn, yn = x+dx, y+dy
+                if xn < 0 or yn < 0 or xn >= width or yn >= height or occlusionMaskCopy2[yn, xn] > 0:
+                    continue
+                sumFilter += int(imgCopy[yn,xn])
+                count += 1
+            if count != 0:
+                occlusionMaskCopy[y,x] = 0
+                img[y,x] = sumFilter / count    # this integer division is fine
+    return img
+
 if __name__ == '__main__':
-    if len(sys.argv) <= 1:
+    if len(sys.argv) <= 2:
         print 'Need file name'
         exit()
 
@@ -86,6 +117,31 @@ if __name__ == '__main__':
     ax = fig.add_subplot(111, projection='3d')
     collection = rcutils.createCollection(vertices, triangles)
     ax.add_collection3d(Poly3DCollection(collection, facecolors='0.75', edgecolors='k'))
+
+    # Read image and update parameters
+    origImg = cv2.imread(sys.argv[2])
+
+    # Intrinsic camera parameters
+    widthPxl = origImg.shape[1]
+    heightPxl = origImg.shape[0]
+    widthChip = 0.0000014 * 2600 * 1.2      # TODO remove this 1.2 eventually
+    heightChip = 0.0000014 * 1952 * 1.2
+    focalLength = 0.00515
+    widthC = widthChip * (widthPxl-1) / widthPxl
+    heightC = heightChip * (heightPxl-1) / heightPxl
+    widthP = widthChip / widthPxl
+    heightP = heightChip / heightPxl
+
+    # Intrinsic calculations that do not depend on camera position
+    # Angle between the focal vector and vector that touches the half point of the side
+    # of the image. Length of the said vector and the vector itself.
+    angleX = math.atan(widthC/2./focalLength)
+    angleY = math.atan(heightC/2./focalLength)
+    lenX = math.sqrt(focalLength*focalLength + widthC*widthC/4.)
+    lenY = math.sqrt(focalLength*focalLength + heightC*heightC/4.)
+    imVecX = rotate_3d(perpX, angleX, [defaultVecDir])[0].normalize() * lenX
+    imVecY = rotate_3d(perpY, angleY, [defaultVecDir])[0].normalize() * lenY
+    focVec = defaultVecDir * focalLength
 
     # Source camera
     rotAngleS = 0
@@ -100,7 +156,7 @@ if __name__ == '__main__':
 
     # Drain camera
     rotAngleD = 0
-    drain = Vector(X_OFF + D, Y_OFF, Z_HEIGHT)
+    drain = Vector(X_OFF - B, Y_OFF, Z_HEIGHT)
     cameraDirD = Vector(TILT, 0., -1.).normalize()
     focVecD, vecbxd, vecbyd, originD = positionCamera(drain, cameraDirD, rotAngleD)
     # plotImVs(ax, drain, focVecD*1000, vecbxd*1000, vecbyd*1000, widthPxl, heightPxl)
@@ -123,75 +179,41 @@ if __name__ == '__main__':
 
     # The actual raycasting
     start = time.time()
-    # coords = rayCaster(grid, source, triangles_cpp, drain, drainRectangle, ax)
-    coords2, depths, depthsD = raycast(grid, source, triangles_cpp, drain, drainRectangle)
-    print time.time() - start
-    res = convert_coordinates_2d(coords2, originD, vecbxd, vecbyd, rotAngleD)
-    # print time.time() - start
-    # for p in filter(lambda g: g is not None, res):
-    #     print p
-
-
-    origImPxls = np.mgrid[0:widthPxl, 0:heightPxl].reshape(2, widthPxl*heightPxl).T
-    virtualImPxl = np.array(res)
-    # print virtualImPxl
-
-    img = cv2.imread(sys.argv[2])
-    cv2.imshow('Nice one', img)
-    img2 = np.zeros((heightPxl, widthPxl), np.uint8)
-    dispmap = np.zeros((heightPxl, widthPxl), np.float32)
-    dispshow = np.zeros((heightPxl, widthPxl, 3), np.uint8)
-    dispshow[:,:,0] = 147
-    dispshow[:,:,1] = 20
-    dispshow[:,:,2] = 255
+    # coords2 = rayCaster(grid, source, triangles_cpp, drain, drainRectangle, ax)
+    coords, depthS = raycast(grid, source, triangles_cpp, drain, drainRectangle)
+    print 'Raycast time:', time.time() - start
+    resultCoords = convert_coordinates_2d(coords, originD, vecbxd, vecbyd, rotAngleD)
+    virtualImg, disparityMap, virtualVisual, occlusionMask = \
+        transformVirtual(widthPxl, heightPxl, resultCoords, origImg)
+    virtualImgFilled = missingInterpolation(virtualImg, occlusionMask, 1)
+    print 'Time:', time.time() - start
     
-    for i in xrange(widthPxl*heightPxl):
-        if virtualImPxl[i] is None:
-            continue
-        j, k = virtualImPxl[i]
-        x, y = origImPxls[i]
-        # print k, y
-        # print j, x, x-j
-        dispmap[y,x] = abs(x-j)
-        img2[y,x] = img[k,j,0]
-        dispshow[y,x] = img[k,j]
-    # for i in xrange(2):
-    #     img3 = np.copy(img2)
-    #     for y in xrange(1, heightPxl-2):
-    #         for x in xrange(1, widthPxl-2):
-    #             if img3[y,x] < 1:
-    #                 s = 0
-    #                 c = 0
-    #                 for dy, dx in N8:
-    #                     if img3[y+dy,x+dx] > 0:
-    #                         s += int(img3[y+dy,x+dx])
-    #                         c += 1
-    #                 if c != 0:
-    #                     img2[y,x] = s / c
-    cv2.imshow('reded', dispshow)
-    cv2.imshow('Nicer one', img2)
-    # print list(np.unique(dispmap.flatten()))
-    # cv2.imshow('Disparity', 1. - dispmap / dispmap.flatten().max())
-    maxd, mind = dispmap[dispmap != 0.0].flatten().max(), dispmap[dispmap != 0.0].flatten().min()
-    dispmap[dispmap != 0.0] = (dispmap[dispmap != 0.0]-mind)*255/(maxd-mind)
-    dispmap = cv2.applyColorMap(np.array(dispmap, dtype=np.uint8), cv2.COLORMAP_JET)
-    # print np.unique(dispmap.flatten())
-    cv2.imshow('Disparity', dispmap)
-    d2d = np.array(depths).reshape([widthPxl, heightPxl]).T
-    cv2.imshow('Depth', 1. - d2d / d2d.flatten().max())
-    d3d = np.array(depthsD).reshape([widthPxl, heightPxl]).T
-    cv2.imshow('DepthD', 1. - d3d / d3d.flatten().max())
-    dispmap2 = 924*D/d2d
-    maxd, mind = dispmap2.flatten().max(), dispmap2.flatten().min()
-    # print np.unique((dispmap2-mind)*255/(maxd-mind).flatten())
-    dispmap2 = cv2.applyColorMap(np.array((dispmap2-mind)*255/(maxd-mind), dtype=np.uint8), cv2.COLORMAP_JET)
-    # print dispmap2
-    # print np.unique(dispmap2.flatten())
-    cv2.imshow('Disparity2', dispmap2)
+    # Visualizing everythig
+    cv2.imshow('Right image (real)', origImg)
+    cv2.imshow('Left image (virtual)', virtualImg)
+    # cv2.imshow('Occlusion mask', occlusionMask)
+    cv2.imshow('Virtual with pink occlusions', virtualVisual)
+    # cv2.imshow('Virtual image non-occluded', virtualImgFilled)
 
-    # print virtualImPxl.shape, origImPxls.shape
+    depthS2d = np.array(depthS).reshape([widthPxl, heightPxl]).T
+    cv2.imshow('Depth - virtual image', 1. - depthS2d / depthS2d.flatten().max())
 
+    # depth to drain, not useful
+    # depthD = depth_to_scene(grid2, drain, triangles_cpp)
+    # depthD2d = np.array(depthD).reshape([widthPxl, heightPxl]).T
+    # cv2.imshow('Depth - original image', 1. - depthD2d / depthD2d.flatten().max())
+    
+    # Disparities visualizing
+    nonocclDisparity = disparityMap != 0.0
+    flattenedDisparity = disparityMap[nonocclDisparity].flatten()
+    maxd, mind = flattenedDisparity.max(), flattenedDisparity.min()
+    disparityMapCopy = np.copy(disparityMap)
+    disparityMapCopy[nonocclDisparity] = (disparityMapCopy[nonocclDisparity]-mind)*255/(maxd-mind)
+    disparityMapCopy = cv2.applyColorMap(np.array(disparityMapCopy, dtype=np.uint8), cv2.COLORMAP_JET)
+    cv2.imshow('Disparity', disparityMapCopy)
+    
     ax.set_xlim3d(-2, 2)
     ax.set_ylim3d(-2, 2)
     ax.set_zlim3d(-2, 2)
+    ax.invert_xaxis()       #YOLO
     plt.show()
