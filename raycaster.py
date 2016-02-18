@@ -31,9 +31,9 @@ DEEP_PINK = [147, 20, 255]
 
 # Camera parameters
 Z_HEIGHT = 3.
-X_OFF = -0.2
-Y_OFF = 0
-B = 0.45
+X_OFF = -0.3
+Y_OFF = -0.3
+B = 0.25
 TILT = 0.0
 
 # Default vector and camera position that is later used to rotate and place image plane
@@ -56,10 +56,9 @@ def positionCamera(point, direction, rotAngle):
     origin = point + focalVec - vecbx * (widthPxl-1) / 2. - vecby * (heightPxl-1) / 2.
     return focalVec, vecbx, vecby, origin
 
-# TODO very important to add bilinear interpolation
-# TODO add background and foreground mask
 def transformVirtual(widthPxl, heightPxl, backCoords, origImg):
-    """Transforms real image into virtual using the previously raycasted coordinates."""
+    """Transforms real image into virtual using the previously raycasted coordinates.
+    Bilinear interpolation works with the assumption that Y values are already proper."""
     virtualImPxls = np.mgrid[0:widthPxl, 0:heightPxl].reshape(2, widthPxl*heightPxl).T
     originalImPxls = np.array(backCoords)
 
@@ -76,6 +75,10 @@ def transformVirtual(widthPxl, heightPxl, backCoords, origImg):
             continue
         j, k = originalImPxls[i]
         disparityMap[y,x] = abs(x-j)
+        dj = abs(j-math.trunc(j))
+        # print (1-dj)*origImg[k,j,0], dj*origImg[k,j+1,0]
+        # virtualImg[y,x] = int((1-dj)*origImg[k,j,0] + dj*origImg[k,j+1,0])
+        # print origImg[k,j,0], int((1-dj)*origImg[k,j,0] + dj*origImg[k,j+1,0])
         virtualImg[y,x] = origImg[k,j,0]
         virtualVisualImg[y,x] = origImg[k,j]
 
@@ -124,8 +127,8 @@ if __name__ == '__main__':
     # Intrinsic camera parameters
     widthPxl = origImg.shape[1]
     heightPxl = origImg.shape[0]
-    widthChip = 0.0000014 * 2600 * 1.2      # TODO remove this 1.2 eventually
-    heightChip = 0.0000014 * 1952 * 1.2
+    widthChip = 0.0000014 * 2600 * 1.8
+    heightChip = 0.0000014 * 1952 * 1.8
     focalLength = 0.00515
     widthC = widthChip * (widthPxl-1) / widthPxl
     heightC = heightChip * (heightPxl-1) / heightPxl
@@ -156,7 +159,7 @@ if __name__ == '__main__':
 
     # Drain camera
     rotAngleD = 0
-    drain = Vector(X_OFF - B, Y_OFF, Z_HEIGHT)
+    drain = Vector(X_OFF + B, Y_OFF, Z_HEIGHT)
     cameraDirD = Vector(TILT, 0., -1.).normalize()
     focVecD, vecbxd, vecbyd, originD = positionCamera(drain, cameraDirD, rotAngleD)
     # plotImVs(ax, drain, focVecD*1000, vecbxd*1000, vecbyd*1000, widthPxl, heightPxl)
@@ -195,11 +198,13 @@ if __name__ == '__main__':
     cv2.imshow('Virtual with pink occlusions', virtualVisual)
     # cv2.imshow('Virtual image non-occluded', virtualImgFilled)
 
-    depthS2d = np.array(depthS).reshape([widthPxl, heightPxl]).T
-    cv2.imshow('Depth - virtual image', 1. - depthS2d / depthS2d.flatten().max())
+    # depthS2d = np.array(depthS).reshape([widthPxl, heightPxl]).T
+    # cv2.imshow('Depth - virtual image', 1. - depthS2d / depthS2d.flatten().max())
 
     foreground = np.array(foreground, dtype=np.uint8).reshape([widthPxl, heightPxl]).T * 255
-    cv2.imshow('Foreground', foreground)
+    # cv2.imshow('Foreground', foreground)
+
+    cv2.imshow('Intersect face', virtualImg | foreground)
 
     # depth to drain, not useful
     # depthD = depth_to_scene(grid2, drain, triangles_cpp)
@@ -207,6 +212,7 @@ if __name__ == '__main__':
     # cv2.imshow('Depth - original image', 1. - depthD2d / depthD2d.flatten().max())
     
     # Disparities visualizing
+    print np.unique(np.array(disparityMap.flatten(), dtype=np.int32))
     nonocclDisparity = disparityMap != 0.0
     flattenedDisparity = disparityMap[nonocclDisparity].flatten()
     maxd, mind = flattenedDisparity.max(), flattenedDisparity.min()
