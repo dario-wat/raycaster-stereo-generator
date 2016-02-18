@@ -37,7 +37,7 @@ def rayCaster(grid, source, sceneTriangles, drain, drainRect, axp):
             continue
         
         # plotL(axp, drain, intersPoint, color='r')
-        # plotL(axp, source, intersPoint, color='b')
+        plotL(axp, source, intersPoint, color='b')
         # plotP(axp, intersPoint, color='r')
 
         backRay = Ray(intersPoint, drain)

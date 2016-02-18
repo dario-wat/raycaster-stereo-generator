@@ -76,7 +76,7 @@ boost::python::list create_grid(
 boost::python::tuple intersect_ray_fakerect(const Ray &r, const FakeRect &fr);
 boost::python::tuple intersect_ray_scene(const Ray &r, const boost::python::list &triangles);
 bool intersects_scene(const Ray &r, const boost::python::list &triangles, int ignore_idx);
-boost::python::list raycast(
+boost::python::tuple raycast(
     const boost::python::list &grid,
     const Vector &source,
     const boost::python::list &scene_triangles,

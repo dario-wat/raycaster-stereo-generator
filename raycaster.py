@@ -24,13 +24,19 @@ from geometry_cpp import convert_coordinates_2d, rotate_3d, Vector, Triangle, Fa
 # focal length in px = 5.15/(0.0014*0.5*(2600/656+1952/488)) = 924
 
 ZEROVEC = Vector(0., 0., 0.)
+N8 = np.array([[-1, -1], [-1, 0], [-1, 1], [0, -1], [0, 1], [1, -1], [1, 0], [1, 1]])
+Z_HEIGHT = 3.
+X_OFF = -0.2
+Y_OFF = 0
+D = -0.45
+TILT = 0.0
 
 # Intrinsic camera parameters
 widthPxl = 384
 heightPxl = 288
-widthChip = 0.8
-heightChip = 0.6
-focalLength = 1.5
+widthChip = 0.0000014 * 2600 #* 1.2
+heightChip = 0.0000014 * 1952 #* 1.2
+focalLength = 0.00515
 widthC = widthChip * (widthPxl-1) / widthPxl
 heightC = heightChip * (heightPxl-1) / heightPxl
 widthP = widthChip / widthPxl
@@ -83,20 +89,22 @@ if __name__ == '__main__':
 
     # Source camera
     rotAngleS = 0
-    source = Vector(0., 0., 3.)
-    cameraDirS = Vector(0., 0., -1.).normalize()
+    source = Vector(X_OFF, Y_OFF, Z_HEIGHT)
+    cameraDirS = Vector(-TILT, 0., -1.).normalize()
     focVecS, vecbxs, vecbys, originS = positionCamera(source, cameraDirS, rotAngleS)
-    # plotImVs(ax, source, focVecS, vecbxs, vecbys, widthPxl, heightPxl)
+    # plotImVs(ax, source, focVecS*1000, vecbxs*1000, vecbys*1000, widthPxl, heightPxl)
+    plotL(ax, source, source + focVecS*1000, 'r')
     
     grid = create_grid(widthPxl, heightPxl, vecbxs, vecbys, originS)
-    plotG(ax, grid, 'r')
+    # plotG(ax, grid, 'r')
 
     # Drain camera
     rotAngleD = 0
-    drain = Vector(.5, 0., 3.)
-    cameraDirD = Vector(0., 0., -1.).normalize()
+    drain = Vector(X_OFF + D, Y_OFF, Z_HEIGHT)
+    cameraDirD = Vector(TILT, 0., -1.).normalize()
     focVecD, vecbxd, vecbyd, originD = positionCamera(drain, cameraDirD, rotAngleD)
-    # plotImVs(ax, drain, focVecD, vecbxd, vecbyd, widthPxl, heightPxl)
+    # plotImVs(ax, drain, focVecD*1000, vecbxd*1000, vecbyd*1000, widthPxl, heightPxl)
+    plotL(ax, drain, drain + focVecD*1000, 'b')
     
     # Drain grid plotting
     grid2 = create_grid(widthPxl, heightPxl, vecbxd, vecbyd, originD)
@@ -104,8 +112,8 @@ if __name__ == '__main__':
     
     # drain grid rectangle
     drainRectangle = FakeRect(originD, vecbxd*(widthPxl-1), vecbyd*(heightPxl-1))
-    plotT(ax, drainRectangle.t1)
-    plotT(ax, drainRectangle.t2)
+    # plotT(ax, drainRectangle.t1)
+    # plotT(ax, drainRectangle.t2)
 
     # Create triangles to be used for intersections
     triangles_cpp = []
@@ -116,9 +124,8 @@ if __name__ == '__main__':
     # The actual raycasting
     start = time.time()
     # coords = rayCaster(grid, source, triangles_cpp, drain, drainRectangle, ax)
-    coords2 = raycast(grid, source, triangles_cpp, drain, drainRectangle)
+    coords2, depths, depthsD = raycast(grid, source, triangles_cpp, drain, drainRectangle)
     print time.time() - start
-
     res = convert_coordinates_2d(coords2, originD, vecbxd, vecbyd, rotAngleD)
     # print time.time() - start
     # for p in filter(lambda g: g is not None, res):
@@ -127,18 +134,60 @@ if __name__ == '__main__':
 
     origImPxls = np.mgrid[0:widthPxl, 0:heightPxl].reshape(2, widthPxl*heightPxl).T
     virtualImPxl = np.array(res)
+    # print virtualImPxl
 
     img = cv2.imread(sys.argv[2])
     cv2.imshow('Nice one', img)
     img2 = np.zeros((heightPxl, widthPxl), np.uint8)
+    dispmap = np.zeros((heightPxl, widthPxl), np.float32)
+    dispshow = np.zeros((heightPxl, widthPxl, 3), np.uint8)
+    dispshow[:,:,0] = 147
+    dispshow[:,:,1] = 20
+    dispshow[:,:,2] = 255
     
-    for i in xrange(len(virtualImPxl)):
+    for i in xrange(widthPxl*heightPxl):
         if virtualImPxl[i] is None:
             continue
         j, k = virtualImPxl[i]
-        y, x = origImPxls[i]
-        img2[k,j] = img[y,x,0]
+        x, y = origImPxls[i]
+        # print k, y
+        # print j, x, x-j
+        dispmap[y,x] = abs(x-j)
+        img2[y,x] = img[k,j,0]
+        dispshow[y,x] = img[k,j]
+    # for i in xrange(2):
+    #     img3 = np.copy(img2)
+    #     for y in xrange(1, heightPxl-2):
+    #         for x in xrange(1, widthPxl-2):
+    #             if img3[y,x] < 1:
+    #                 s = 0
+    #                 c = 0
+    #                 for dy, dx in N8:
+    #                     if img3[y+dy,x+dx] > 0:
+    #                         s += int(img3[y+dy,x+dx])
+    #                         c += 1
+    #                 if c != 0:
+    #                     img2[y,x] = s / c
+    cv2.imshow('reded', dispshow)
     cv2.imshow('Nicer one', img2)
+    # print list(np.unique(dispmap.flatten()))
+    # cv2.imshow('Disparity', 1. - dispmap / dispmap.flatten().max())
+    maxd, mind = dispmap[dispmap != 0.0].flatten().max(), dispmap[dispmap != 0.0].flatten().min()
+    dispmap[dispmap != 0.0] = (dispmap[dispmap != 0.0]-mind)*255/(maxd-mind)
+    dispmap = cv2.applyColorMap(np.array(dispmap, dtype=np.uint8), cv2.COLORMAP_JET)
+    # print np.unique(dispmap.flatten())
+    cv2.imshow('Disparity', dispmap)
+    d2d = np.array(depths).reshape([widthPxl, heightPxl]).T
+    cv2.imshow('Depth', 1. - d2d / d2d.flatten().max())
+    d3d = np.array(depthsD).reshape([widthPxl, heightPxl]).T
+    cv2.imshow('DepthD', 1. - d3d / d3d.flatten().max())
+    dispmap2 = 924*D/d2d
+    maxd, mind = dispmap2.flatten().max(), dispmap2.flatten().min()
+    # print np.unique((dispmap2-mind)*255/(maxd-mind).flatten())
+    dispmap2 = cv2.applyColorMap(np.array((dispmap2-mind)*255/(maxd-mind), dtype=np.uint8), cv2.COLORMAP_JET)
+    # print dispmap2
+    # print np.unique(dispmap2.flatten())
+    cv2.imshow('Disparity2', dispmap2)
 
     # print virtualImPxl.shape, origImPxls.shape
 
