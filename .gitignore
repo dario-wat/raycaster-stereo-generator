@@ -6,3 +6,4 @@ CMakeCache.txt
 *.so
 *.pgm
 *.png
+*.npy

@@ -90,9 +90,9 @@ boost::python::list convert_coordinates_2d(
     const Vector &scaled_basis_y,
     double rot_angle);
 boost::python::list depth_to_scene(
-        const boost::python::list &grid,
-        const Vector &source,
-        const boost::python::list &scene_triangles);
+    const boost::python::list &grid,
+    const Vector &source,
+    const boost::python::list &scene_triangles);
 
 }
 
