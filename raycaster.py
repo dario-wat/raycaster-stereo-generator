@@ -10,7 +10,7 @@ from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
 import rcutils
 from geometry import plotT, plotP, plotL, plotG, plotImVs, rayCaster, testCoords, \
-    transformVirtual, missingInterpolation
+    transformVirtual, missingInterpolation, createGridImage
 
 from geometry_cpp import convert_coordinates_2d, rotate_3d, Vector, Triangle, FakeRect, \
     create_grid, raycast, depth_to_scene
@@ -29,14 +29,14 @@ from geometry_cpp import convert_coordinates_2d, rotate_3d, Vector, Triangle, Fa
 ZEROVEC = Vector(0., 0., 0.)
 
 # Camera parameters
-Z_HEIGHT = 2
+Z_HEIGHT = 5
 X_OFF = -0.3
 Y_OFF = -0.3
 B = 0.4
 TILT = 0.
 
-# Intrinsic
-focalLength = 0.00185
+# Intrinsic parameters
+focalLength = 0.00515
 
 # Default vector and camera position that is later used to rotate and place image plane
 # easier in 3D space. Includes perpendicular vectors for rotating the side image vectors.
@@ -58,18 +58,6 @@ def positionCamera(point, direction, rotAngle):
     origin = point + focalVec - vecbx * (widthPxl-1) / 2. - vecby * (heightPxl-1) / 2.
     return focalVec, vecbx, vecby, origin
 
-def createGridImage(width, height, gap):
-    img = np.ones((height, width), dtype=np.uint8)*255
-    for i in xrange(gap, width, gap):
-        # img[:,i-1] = 0
-        img[:,i] = 0
-        # img[:,i+1] = 0
-    for i in xrange(gap, height, gap):
-        # img[i-1,:] = 0
-        img[i,:] = 0
-        # img[i+1,:] = 0
-    return img
-
 if __name__ == '__main__':
     if len(sys.argv) <= 2:
         print 'Need file name'
@@ -81,18 +69,18 @@ if __name__ == '__main__':
     # Create plotter and add the scene to it
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
-    collection = rcutils.createCollection(vertices, triangles)
+    collection = rcutils.createCollection(vertices, triangles)[:len(triangles)-2]
     ax.add_collection3d(Poly3DCollection(collection, facecolors='0.75', edgecolors='k'))
 
     # Read image and update parameters
     origImg = cv2.imread(sys.argv[2])
-    # cv2.imwrite('gridimg.pgm', createGridImage(480, 360, 6)); exit()
+    # cv2.imwrite('gridimg.pgm', createGridImage(640, 480, 3)); exit()
 
     # Intrinsic camera parameters
     widthPxl = origImg.shape[1]
     heightPxl = origImg.shape[0]
-    widthChip = 0.0000014 * 2600 * 1.
-    heightChip = 0.0000014 * 1952 * 1.
+    widthChip = 0.0000014 * 2600 * 1.2
+    heightChip = 0.0000014 * 1952 * 1.2
     widthC = widthChip * (widthPxl-1) / widthPxl
     heightC = heightChip * (heightPxl-1) / heightPxl
     widthP = widthChip / widthPxl
@@ -151,7 +139,7 @@ if __name__ == '__main__':
     resultCoords = convert_coordinates_2d(coords, originD, vecbxd, vecbyd, rotAngleD)
     virtualImg, disparityMap, virtualVisual, occlusionMask = \
         transformVirtual(widthPxl, heightPxl, resultCoords, origImg)
-    virtualImgFilled = missingInterpolation(virtualImg, occlusionMask, 1)
+    # virtualImgFilled = missingInterpolation(virtualImg, occlusionMask, 1)
     print 'Time:', time.time() - start
     
     # Visualizing everythig
@@ -182,6 +170,8 @@ if __name__ == '__main__':
     disparityMapCopy = cv2.applyColorMap(np.array(disparityMapCopy, dtype=np.uint8), cv2.COLORMAP_JET)
     cv2.imshow('Disparity', disparityMapCopy)
 
+    # cv2.imwrite('disparity.pgm', disparityMapCopy)
+    # cv2.imwrite('virtualimg.pgm', virtualImg)
     
     ax.set_xlim3d(-2, 2)
     ax.set_ylim3d(-2, 2)

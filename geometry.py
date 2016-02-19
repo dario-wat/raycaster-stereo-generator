@@ -114,3 +114,11 @@ def missingInterpolation(imgOrig, occlusionMask, nIter=1):
                 occlusionMaskCopy[y,x] = 0
                 img[y,x] = sumFilter / count    # this integer division is fine
     return img
+
+def createGridImage(width, height, gap):
+    img = np.ones((height, width), dtype=np.uint8)*255
+    for i in xrange(gap, width, gap):
+        img[:,i] = 0
+    for i in xrange(gap, height, gap):
+        img[i,:] = 0
+    return img

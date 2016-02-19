@@ -5,3 +5,4 @@ Makefile
 CMakeCache.txt
 *.so
 *.pgm
+*.png
