@@ -9,7 +9,8 @@ from mpl_toolkits.mplot3d import Axes3D
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
 import rcutils
-from geometry import plotT, plotP, plotL, plotG, plotImVs, rayCaster, testCoords
+from geometry import plotT, plotP, plotL, plotG, plotImVs, rayCaster, testCoords, \
+    transformVirtual, missingInterpolation
 
 from geometry_cpp import convert_coordinates_2d, rotate_3d, Vector, Triangle, FakeRect, \
     create_grid, raycast, depth_to_scene
@@ -26,15 +27,16 @@ from geometry_cpp import convert_coordinates_2d, rotate_3d, Vector, Triangle, Fa
 
 # Constants
 ZEROVEC = Vector(0., 0., 0.)
-N8 = np.array([[-1, -1], [-1, 0], [-1, 1], [0, -1], [0, 1], [1, -1], [1, 0], [1, 1]])
-DEEP_PINK = [147, 20, 255]
 
 # Camera parameters
-Z_HEIGHT = 3.
+Z_HEIGHT = 2
 X_OFF = -0.3
 Y_OFF = -0.3
-B = 0.25
-TILT = 0.0
+B = 0.4
+TILT = 0.
+
+# Intrinsic
+focalLength = 0.00185
 
 # Default vector and camera position that is later used to rotate and place image plane
 # easier in 3D space. Includes perpendicular vectors for rotating the side image vectors.
@@ -56,55 +58,16 @@ def positionCamera(point, direction, rotAngle):
     origin = point + focalVec - vecbx * (widthPxl-1) / 2. - vecby * (heightPxl-1) / 2.
     return focalVec, vecbx, vecby, origin
 
-def transformVirtual(widthPxl, heightPxl, backCoords, origImg):
-    """Transforms real image into virtual using the previously raycasted coordinates.
-    Bilinear interpolation works with the assumption that Y values are already proper."""
-    virtualImPxls = np.mgrid[0:widthPxl, 0:heightPxl].reshape(2, widthPxl*heightPxl).T
-    originalImPxls = np.array(backCoords)
-
-    virtualImg = np.zeros((heightPxl, widthPxl), np.uint8)
-    disparityMap = np.zeros((heightPxl, widthPxl), np.float32)
-    virtualVisualImg = np.zeros((heightPxl, widthPxl, 3), np.uint8)
-    occlusionMask = np.zeros((heightPxl, widthPxl), np.uint8)
-    virtualVisualImg[:,:] = DEEP_PINK
-    
-    for i in xrange(widthPxl*heightPxl):
-        x, y = virtualImPxls[i]
-        if originalImPxls[i] is None:
-            occlusionMask[y,x] = 255
-            continue
-        j, k = originalImPxls[i]
-        disparityMap[y,x] = abs(x-j)
-        dj = abs(j-math.trunc(j))
-        # print (1-dj)*origImg[k,j,0], dj*origImg[k,j+1,0]
-        # virtualImg[y,x] = int((1-dj)*origImg[k,j,0] + dj*origImg[k,j+1,0])
-        # print origImg[k,j,0], int((1-dj)*origImg[k,j,0] + dj*origImg[k,j+1,0])
-        virtualImg[y,x] = origImg[k,j,0]
-        virtualVisualImg[y,x] = origImg[k,j]
-
-    return virtualImg, disparityMap, virtualVisualImg, occlusionMask
-
-def missingInterpolation(imgOrig, occlusionMask, nIter=1):
-    """Fills in occluded pixels by the mean value of neighbors."""
-    img = np.copy(imgOrig)
-    height, width = occlusionMask.shape
-    occlusionMaskCopy = np.copy(occlusionMask)
-    for _ in xrange(nIter):
-        imgCopy = np.copy(img)
-        interCoords = np.array(occlusionMaskCopy.nonzero()).T
-        occlusionMaskCopy2 = np.copy(occlusionMaskCopy)
-        for y, x in interCoords:
-            sumFilter = 0
-            count = 0
-            for dy, dx in N8:
-                xn, yn = x+dx, y+dy
-                if xn < 0 or yn < 0 or xn >= width or yn >= height or occlusionMaskCopy2[yn, xn] > 0:
-                    continue
-                sumFilter += int(imgCopy[yn,xn])
-                count += 1
-            if count != 0:
-                occlusionMaskCopy[y,x] = 0
-                img[y,x] = sumFilter / count    # this integer division is fine
+def createGridImage(width, height, gap):
+    img = np.ones((height, width), dtype=np.uint8)*255
+    for i in xrange(gap, width, gap):
+        # img[:,i-1] = 0
+        img[:,i] = 0
+        # img[:,i+1] = 0
+    for i in xrange(gap, height, gap):
+        # img[i-1,:] = 0
+        img[i,:] = 0
+        # img[i+1,:] = 0
     return img
 
 if __name__ == '__main__':
@@ -123,13 +86,13 @@ if __name__ == '__main__':
 
     # Read image and update parameters
     origImg = cv2.imread(sys.argv[2])
+    # cv2.imwrite('gridimg.pgm', createGridImage(480, 360, 6)); exit()
 
     # Intrinsic camera parameters
     widthPxl = origImg.shape[1]
     heightPxl = origImg.shape[0]
-    widthChip = 0.0000014 * 2600 * 1.8
-    heightChip = 0.0000014 * 1952 * 1.8
-    focalLength = 0.00515
+    widthChip = 0.0000014 * 2600 * 1.
+    heightChip = 0.0000014 * 1952 * 1.
     widthC = widthChip * (widthPxl-1) / widthPxl
     heightC = heightChip * (heightPxl-1) / heightPxl
     widthP = widthChip / widthPxl
@@ -203,7 +166,6 @@ if __name__ == '__main__':
 
     foreground = np.array(foreground, dtype=np.uint8).reshape([widthPxl, heightPxl]).T * 255
     # cv2.imshow('Foreground', foreground)
-
     cv2.imshow('Intersect face', virtualImg | foreground)
 
     # depth to drain, not useful
@@ -212,7 +174,6 @@ if __name__ == '__main__':
     # cv2.imshow('Depth - original image', 1. - depthD2d / depthD2d.flatten().max())
     
     # Disparities visualizing
-    print np.unique(np.array(disparityMap.flatten(), dtype=np.int32))
     nonocclDisparity = disparityMap != 0.0
     flattenedDisparity = disparityMap[nonocclDisparity].flatten()
     maxd, mind = flattenedDisparity.max(), flattenedDisparity.min()
@@ -220,6 +181,7 @@ if __name__ == '__main__':
     disparityMapCopy[nonocclDisparity] = (disparityMapCopy[nonocclDisparity]-mind)*255/(maxd-mind)
     disparityMapCopy = cv2.applyColorMap(np.array(disparityMapCopy, dtype=np.uint8), cv2.COLORMAP_JET)
     cv2.imshow('Disparity', disparityMapCopy)
+
     
     ax.set_xlim3d(-2, 2)
     ax.set_ylim3d(-2, 2)

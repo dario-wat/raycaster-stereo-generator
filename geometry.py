@@ -1,3 +1,5 @@
+import numpy as np
+import math
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 from geometry_cpp import intersects_scene, intersect_ray_scene, Ray, intersect_ray_fakerect, rotate_3d
 
@@ -59,3 +61,56 @@ def testCoords(coords1, coords2):
         elif abs(a[0] - b[0]) > 1e-12 or abs(a[1] - b[1]) > 1e-12:
             return False
     return True
+
+DEEP_PINK = [147, 20, 255]
+N8 = np.array([[-1, -1], [-1, 0], [-1, 1], [0, -1], [0, 1], [1, -1], [1, 0], [1, 1]])
+
+def transformVirtual(widthPxl, heightPxl, backCoords, origImg):
+    """Transforms real image into virtual using the previously raycasted coordinates.
+    Bilinear interpolation works with the assumption that Y values are already aligned."""
+    virtualImPxls = np.mgrid[0:widthPxl, 0:heightPxl].reshape(2, widthPxl*heightPxl).T
+    originalImPxls = np.array(backCoords)
+
+    virtualImg = np.zeros((heightPxl, widthPxl), np.uint8)
+    disparityMap = np.zeros((heightPxl, widthPxl), np.float32)
+    virtualVisualImg = np.zeros((heightPxl, widthPxl, 3), np.uint8)
+    occlusionMask = np.zeros((heightPxl, widthPxl), np.uint8)
+    virtualVisualImg[:,:] = DEEP_PINK
+    
+    for i in xrange(widthPxl*heightPxl):
+        x, y = virtualImPxls[i]
+        if originalImPxls[i] is None:
+            occlusionMask[y,x] = 255
+            continue
+        j, k = originalImPxls[i]
+        disparityMap[y,x] = abs(x-j)
+        y, k = round(y), round(k)
+        dj = abs(j-math.trunc(j))
+        virtualImg[y,x] = int((1-dj)*origImg[k,j,0] + dj*origImg[k,j+1,0])
+        # virtualImg[y,x] = origImg[k,j,0]
+        virtualVisualImg[y,x] = origImg[k,j]
+
+    return virtualImg, disparityMap, virtualVisualImg, occlusionMask
+
+def missingInterpolation(imgOrig, occlusionMask, nIter=1):
+    """Fills in occluded pixels by the mean value of neighbors."""
+    img = np.copy(imgOrig)
+    height, width = occlusionMask.shape
+    occlusionMaskCopy = np.copy(occlusionMask)
+    for _ in xrange(nIter):
+        imgCopy = np.copy(img)
+        interCoords = np.array(occlusionMaskCopy.nonzero()).T
+        occlusionMaskCopy2 = np.copy(occlusionMaskCopy)
+        for y, x in interCoords:
+            sumFilter = 0
+            count = 0
+            for dy, dx in N8:
+                xn, yn = x+dx, y+dy
+                if xn < 0 or yn < 0 or xn >= width or yn >= height or occlusionMaskCopy2[yn, xn] > 0:
+                    continue
+                sumFilter += int(imgCopy[yn,xn])
+                count += 1
+            if count != 0:
+                occlusionMaskCopy[y,x] = 0
+                img[y,x] = sumFilter / count    # this integer division is fine
+    return img
