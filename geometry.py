@@ -92,29 +92,6 @@ def transformVirtual(widthPxl, heightPxl, backCoords, origImg):
 
     return virtualImg, disparityMap, virtualVisualImg, occlusionMask
 
-def missingInterpolation(imgOrig, occlusionMask, nIter=1):
-    """Fills in occluded pixels by the mean value of neighbors."""
-    img = np.copy(imgOrig)
-    height, width = occlusionMask.shape
-    occlusionMaskCopy = np.copy(occlusionMask)
-    for _ in xrange(nIter):
-        imgCopy = np.copy(img)
-        interCoords = np.array(occlusionMaskCopy.nonzero()).T
-        occlusionMaskCopy2 = np.copy(occlusionMaskCopy)
-        for y, x in interCoords:
-            sumFilter = 0
-            count = 0
-            for dy, dx in N8:
-                xn, yn = x+dx, y+dy
-                if xn < 0 or yn < 0 or xn >= width or yn >= height or occlusionMaskCopy2[yn, xn] > 0:
-                    continue
-                sumFilter += int(imgCopy[yn,xn])
-                count += 1
-            if count != 0:
-                occlusionMaskCopy[y,x] = 0
-                img[y,x] = sumFilter / count    # this integer division is fine
-    return img
-
 def createGridImage(width, height, gap):
     img = np.ones((height, width), dtype=np.uint8)*255
     for i in xrange(gap, width, gap):

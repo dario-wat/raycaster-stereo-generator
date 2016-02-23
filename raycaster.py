@@ -10,10 +10,10 @@ from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
 import rcutils
 from geometry import plotT, plotP, plotL, plotG, plotImVs, rayCaster, testCoords, \
-    transformVirtual, missingInterpolation, createGridImage
+    transformVirtual, createGridImage
 
 from geometry_cpp import convert_coordinates_2d, rotate_3d, Vector, Triangle, FakeRect, \
-    create_grid, raycast, depth_to_scene
+    create_grid, raycast, depth_to_scene, missing_interpolation
 
 # Some camera parameters
 # focal length: 5.15 mm
@@ -29,14 +29,15 @@ from geometry_cpp import convert_coordinates_2d, rotate_3d, Vector, Triangle, Fa
 ZEROVEC = Vector(0., 0., 0.)
 
 # Camera parameters
-Z_HEIGHT = 2.
-X_OFF = -0.45
-Y_OFF = 0.15
-B = 0.18
+Z_HEIGHT = 3.4
+X_OFF = 0.8
+Y_OFF = 0.3
+B = -0.18
 TILT = 0.
+CHIP_MUL = 1.0
 
 # Intrinsic parameters
-focalLength = 0.00375
+focalLength = 0.00315
 
 # Default vector and camera position that is later used to rotate and place image plane
 # easier in 3D space. Includes perpendicular vectors for rotating the side image vectors.
@@ -47,7 +48,8 @@ perpX = defaultVecDir.cross(defaultVecX)
 perpY = defaultVecDir.cross(defaultVecY)
 
 def positionCamera(point, direction, rotAngle):
-    """Highly globally dependent function. Very complicated geometry positioning"""
+    """Highly globally dependent function. Very complicated geometry positioning. Must not be
+    called before all intrinsic parameters are set."""
     perpendicularAxis = direction.cross(defaultVecDir)
     angle = math.atan2(perpendicularAxis.norm(), direction*defaultVecDir)
     focalVec, vecxx, vecyy = (focVec, imVecX, imVecY) if defaultVecDir.cross(direction) == ZEROVEC \
@@ -79,8 +81,8 @@ if __name__ == '__main__':
     # Intrinsic camera parameters
     widthPxl = origImg.shape[1]
     heightPxl = origImg.shape[0]
-    widthChip = 0.0000014 * 2600 * 1.
-    heightChip = 0.0000014 * 1952 * 1.
+    widthChip = 0.0000014 * 2600 * CHIP_MUL
+    heightChip = 0.0000014 * 1952 * CHIP_MUL
     widthC = widthChip * (widthPxl-1) / widthPxl
     heightC = heightChip * (heightPxl-1) / heightPxl
     widthP = widthChip / widthPxl
@@ -137,58 +139,151 @@ if __name__ == '__main__':
     coords, depthS, foreground = raycast(grid, source, triangles_cpp, drain, drainRectangle, [184, 185])    # HACK
     print 'Raycast time:', time.time() - start
     resultCoords = convert_coordinates_2d(coords, originD, vecbxd, vecbyd, rotAngleD)
+    print 'Time intermediate:', time.time() - start
     virtualImg, disparityMap, virtualVisual, occlusionMask = \
         transformVirtual(widthPxl, heightPxl, resultCoords, origImg)
-    virtualImgFilled = missingInterpolation(virtualImg, occlusionMask, 15)
     print 'Time:', time.time() - start
+    virtualImgFilled = np.array(missing_interpolation(
+        list(map(int, virtualImg.flatten())), 
+        virtualImg.shape[1],
+        virtualImg.shape[0],
+        15,
+        list(map(int, occlusionMask.flatten()))), dtype=np.uint8).reshape((heightPxl, widthPxl))
+    # print np.sum(np.array(virtualImgFilled2).reshape((heightPxl, widthPxl)) - virtualImgFilled)
+    # cv2.imshow('Yoloquick', np.array(virtualImgFilled2, dtype=np.uint8).reshape((heightPxl, widthPxl)))
     
     # Visualizing everythig
     cv2.imshow('Right image (real)', cv2.resize(origImg, (640, 480)))
     # cv2.imshow('Left image (virtual)', virtualImg)
     # cv2.imshow('Occlusion mask', occlusionMask)
     cv2.imshow('Virtual with pink occlusions', cv2.resize(virtualVisual, (640, 480)))
-    cv2.imshow('Virtual image non-occluded', cv2.resize(virtualImgFilled, (640, 480)))
+    cv2.imshow('Virtual image non-occluded', virtualImgFilled)
 
-    depthS2d = np.array(depthS).reshape([widthPxl, heightPxl]).T
-    depthSimg = 1. - depthS2d / depthS2d.flatten().max()
+    # depthS2d = np.array(depthS).reshape([widthPxl, heightPxl]).T
+    # depthSimg = np.array((1. - depthS2d / depthS2d.flatten().max())*255, dtype=np.uint8)
     # cv2.imshow('Depth - virtual image', depthSimg)
 
-    foreground = np.array(foreground, dtype=np.uint8).reshape([widthPxl, heightPxl]).T * 255
+    # foreground = np.array(foreground, dtype=np.uint8).reshape([widthPxl, heightPxl]).T * 255
     # cv2.imshow('Foreground', foreground)
-    cv2.imshow('Intersect face', cv2.resize(virtualImg | foreground, (640, 480)))
+    # cv2.imshow('Intersect face', cv2.resize(virtualImg | foreground, (640, 480)))
 
     # depth to drain, not useful
-    depthD = depth_to_scene(grid2, drain, triangles_cpp)
-    depthD2d = np.array(depthD).reshape([widthPxl, heightPxl]).T
-    depthDimg = 1. - depthD2d / depthD2d.flatten().max()
+    # depthD = depth_to_scene(grid2, drain, triangles_cpp)
+    # depthD2d = np.array(depthD).reshape([widthPxl, heightPxl]).T
+    # depthDimg = np.array((1. - depthD2d / depthD2d.flatten().max())*255, dtype=np.uint8)
     # cv2.imshow('Depth - original image', depthDimg)
     
     # Disparities visualizing
     nonocclDisparity = disparityMap != 0.0
     flattenedDisparity = disparityMap[nonocclDisparity].flatten()
+    print np.unique(flattenedDisparity)
     maxd, mind = flattenedDisparity.max(), flattenedDisparity.min()
+    print 'max, min', maxd, mind
     disparityMapCopy = np.copy(disparityMap)
-    disparityMapCopy[nonocclDisparity] = (disparityMapCopy[nonocclDisparity]-mind)*255/(maxd-mind)
+    disparityMapCopy[nonocclDisparity] = (disparityMapCopy[nonocclDisparity]-21)*255/(33-21)
     disparityMapCopy = cv2.applyColorMap(np.array(disparityMapCopy, dtype=np.uint8), cv2.COLORMAP_JET)
     # cv2.imshow('Disparity', disparityMapCopy)
-
-    # cv2.imwrite('disparity.pgm', disparityMapCopy)
-    # cv2.imwrite('virtualimg.pgm', virtualImg)
     
-    cv2.imwrite('output_data/origimg.pgm', origImg)
-    cv2.imwrite('output_data/virtualimg.pgm', virtualImg)
-    cv2.imwrite('output_data/virtualimg_pink.pgm', virtualVisual)
-    cv2.imwrite('output_data/virtualimg_nooccl.pgm', virtualImgFilled)
-    cv2.imwrite('output_data/occlusion_mask.pgm', occlusionMask)
-    cv2.imwrite('output_data/foreground_mask.pgm', foreground)
-    cv2.imwrite('output_data/depth_source.pgm', depthSimg)
-    cv2.imwrite('output_data/depth_drain.pgm', depthDimg)
+    # cv2.imwrite('output_data/origimg.pgm', origImg[:,:,0])
+    # cv2.imwrite('output_data/virtualimg.pgm', virtualImg)
+    # cv2.imwrite('output_data/virtualimg_pink.pgm', virtualVisual)
+    # cv2.imwrite('output_data/virtualimg_nooccl.pgm', virtualImgFilled)
+    # cv2.imwrite('output_data/occlusion_mask.pgm', occlusionMask)
+    # cv2.imwrite('output_data/foreground_mask.pgm', foreground)
+    # cv2.imwrite('output_data/depth_source.pgm', depthSimg)
+    # cv2.imwrite('output_data/depth_drain.pgm', depthDimg)
     cv2.imwrite('output_data/disparity.pgm', disparityMapCopy)
-    np.save('output_data/disparity_data', disparityMap)
+    # cv2.imwrite('output_data/virtualimg_fg.pgm', virtualImg | foreground)
+    # cv2.imwrite('output_data/disparity_map.pgm', disparityMap)
+    # np.save('output_data/disparity_data', disparityMap)
 
 
     ax.set_xlim3d(-2, 2)
     ax.set_ylim3d(-2, 2)
     ax.set_zlim3d(-2, 2)
     ax.invert_xaxis()       #YOLO
+
+    print 'All done:', time.time() - start
+
     plt.show()
+
+
+# Params for both large images in data_large_{1,2}
+# # Camera parameters
+# Z_HEIGHT = 2.
+# X_OFF = -0.09
+# Y_OFF = 0.15
+# B = -0.18
+# TILT = 0.
+# CHIP_MUL = 1.0
+
+# # Intrinsic parameters
+# focalLength = 0.00375
+# min max 123 200
+
+
+# vga_data_1
+# # Camera parameters
+# Z_HEIGHT = 3.
+# X_OFF = 0.01
+# Y_OFF = -0.15
+# B = -0.18
+# TILT = 0.
+# CHIP_MUL = 1.0
+
+# # Intrinsic parameters
+# focalLength = 0.00315
+# min max diff 24 38 14 for scaling the color and sizes 
+# actually 26 and 36
+
+# vga_data_2
+# Camera parameters
+# Z_HEIGHT = 2.8
+# X_OFF = 0.2
+# Y_OFF = -0.15
+# B = -0.18
+# TILT = 0.
+# CHIP_MUL = 1.0
+
+# # Intrinsic parameters
+# focalLength = 0.00315
+# min max 27 38
+
+# vga_data_3
+# Camera parameters
+# Z_HEIGHT = 3.1
+# X_OFF = 0.05
+# Y_OFF = 0.3
+# B = -0.18
+# TILT = 0.
+# CHIP_MUL = 1.0
+
+# # Intrinsic parameters
+# focalLength = 0.00315
+# min max 25 34
+
+# vga_data_4
+# Camera parameters
+# Z_HEIGHT = 3.1
+# X_OFF = 0.2
+# Y_OFF = 0.3
+# B = -0.18
+# TILT = 0.
+# CHIP_MUL = 1.0
+
+# # Intrinsic parameters
+# focalLength = 0.00315
+# min max 25 34
+
+# vga_data_5
+# Camera parameters
+# Z_HEIGHT = 3.4
+# X_OFF = 0.8
+# Y_OFF = 0.3
+# B = -0.18
+# TILT = 0.
+# CHIP_MUL = 1.0
+
+# # Intrinsic parameters
+# focalLength = 0.00315
+# min max 23 31
