@@ -93,6 +93,12 @@ boost::python::list depth_to_scene(
     const boost::python::list &grid,
     const Vector &source,
     const boost::python::list &scene_triangles);
+boost::python::list missing_interpolation(
+    const boost::python::list &image_orig,
+    int w,
+    int h,
+    int n_iter,
+    const boost::python::list &occl_map);
 
 }
 
@@ -135,6 +141,7 @@ BOOST_PYTHON_MODULE(geometry_cpp) {
     def("raycast", ster::raycast);
     def("convert_coordinates_2d", ster::convert_coordinates_2d);
     def("depth_to_scene", ster::depth_to_scene);
+    def("missing_interpolation", ster::missing_interpolation);
 }
 
 #endif

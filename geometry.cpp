@@ -3,6 +3,8 @@
 #include <sstream>
 #include <iomanip>
 #include <iostream>
+#include <vector>
+#include <tuple>
 #include <unordered_set>
 #include <cmath>
 #include <boost/python/tuple.hpp>
@@ -13,11 +15,54 @@ namespace bp = boost::python;
 
 const ster::Vector ster::Vector::ZERO = ster::Vector(0.0, 0.0, 0.0);
 static const bp::object NONE = bp::object();
+static const std::vector<std::tuple<int, int>> N8 = {
+    std::make_tuple(-1, -1), std::make_tuple(1, -1), std::make_tuple(0, -1),
+    std::make_tuple(-1,  0), std::make_tuple(1,  0), std::make_tuple(0,  1),
+    std::make_tuple(-1,  1), std::make_tuple(1,  1)};
 
 // Helper function to make creating of tuples easier.
 template<typename A, typename B>
 inline bp::tuple tuple_(A a, B b) {
     return bp::make_tuple(a, b);
+}
+
+// Creates list of size n initialized with given value
+inline bp::list init_python_list(int n, bp::object value=NONE) {
+    bp::list li;
+    li.append(value);
+    li *= n;
+    return li;
+}
+
+// Makes a copy of a boost::python::list
+bp::list copy_python_list(const bp::list &li) {
+    int n = bp::len(li);
+    bp::list li_copy = init_python_list(n);
+    for (int i = 0; i < n; i++) {
+        li_copy[i] = li[i];
+    }
+    return li_copy;
+}
+
+// boost::python::list to std::vector
+template<typename T>
+std::vector<T> to_vector(const bp::list &li) {
+    int n = bp::len(li);
+    std::vector<T> vec(n);
+    for (int i = 0; i < n; i++) {
+        vec[i] = bp::extract<T>(li[i]);
+    }
+    return vec;
+}
+
+// std::vector to boost::python::list
+template<typename T>
+bp::list to_python_list(const std::vector<T> &vec) {
+    bp::list li;
+    for (auto it = vec.begin(); it != vec.end(); it++) {
+        li.append(*it);
+    }
+    return li;
 }
 
 // Intersection of ray and triangle in 3D. Returns 1 in tuple if it's found and intersection.
@@ -348,28 +393,55 @@ bp::list ster::convert_coordinates_2d(
     return rotated_points;
 }
 
-// bp::list missing_interpolation(
-//     const bp::list &image, const bp::lis)
+// To follow the logic of python functions and images, the first coordinate is y and
+// the second is x. Returns coordinates of all pixels that are zero.
+std::vector<std::tuple<int, int>> nonzero(const bp::list &image_mask, int w, int h) {
+    std::vector<std::tuple<int, int>> nonzero_coordinates;
+    for (int y = 0; y < h; y++) {
+        for (int x = 0; x < w; x++) {
+            int pxl = bp::extract<int>(image_mask[y*w+x]);
+            if (pxl != 0) {
+                nonzero_coordinates.push_back(std::make_tuple(y, x));
+            }
+        }
+    }
+    return nonzero_coordinates;
+}
 
-// def missingInterpolation(imgOrig, occlusionMask, nIter=1):
-//     """Fills in occluded pixels by the mean value of neighbors."""
-//     img = np.copy(imgOrig)
-//     height, width = occlusionMask.shape
-//     occlusionMaskCopy = np.copy(occlusionMask)
-//     for _ in xrange(nIter):
-//         imgCopy = np.copy(img)
-//         interCoords = np.array(occlusionMaskCopy.nonzero()).T
-//         occlusionMaskCopy2 = np.copy(occlusionMaskCopy)
-//         for y, x in interCoords:
-//             sumFilter = 0
-//             count = 0
-//             for dy, dx in N8:
-//                 xn, yn = x+dx, y+dy
-//                 if xn < 0 or yn < 0 or xn >= width or yn >= height or occlusionMaskCopy2[yn, xn] > 0:
-//                     continue
-//                 sumFilter += int(imgCopy[yn,xn])
-//                 count += 1
-//             if count != 0:
-//                 occlusionMaskCopy[y,x] = 0
-//                 img[y,x] = sumFilter / count    # this integer division is fine
-//     return img
+// Fills in occluded pixels by the mean value of neighbors.
+bp::list ster::missing_interpolation(
+        const bp::list &image_orig, int w, int h, int n_iter, const bp::list &occl_map) {
+    std::vector<int> image_to = to_vector<int>(image_orig);
+    std::vector<int> image_from = to_vector<int>(image_orig);
+    std::vector<int> occl_map_from = to_vector<int>(occl_map);
+    std::vector<int> occl_map_to = to_vector<int>(occl_map);
+    std::vector<std::tuple<int, int>> occl_from = nonzero(occl_map, w, h);
+
+    for (int iter = 0; iter < n_iter; iter++) {
+        std::vector<std::tuple<int, int>> occl_to;
+        for (auto it_occl = occl_from.begin(); it_occl != occl_from.end(); it_occl++) {
+            int y = std::get<0>(*it_occl), x = std::get<1>(*it_occl);
+            double sum = 0.0;
+            int count = 0;
+            for (auto it = N8.begin(); it != N8.end(); it++) {
+                int xn = x + std::get<0>(*it), yn = y + std::get<1>(*it);
+                if (xn < 0 || yn < 0 || xn >= w || yn >= h || occl_map_from[yn*w+xn]) {
+                    continue;
+                }
+                sum += image_from[yn*w+xn];
+                count++;
+            }
+            if (count != 0) {
+                image_to[y*w+x] = sum / count;
+                occl_map_to[y*w+x] = 0;
+            } else {
+                occl_to.push_back(*it_occl);
+            }
+        }
+
+        image_from = image_to;
+        occl_map_from = occl_map_to;
+        occl_from = occl_to;
+    }
+    return to_python_list(image_from);
+}
