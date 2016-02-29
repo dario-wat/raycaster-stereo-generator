@@ -47,6 +47,7 @@ defaultVecDir = Vector(0., 0., -1.)
 perpX = defaultVecDir.cross(defaultVecX)
 perpY = defaultVecDir.cross(defaultVecY)
 
+# TODO, do something with this function, it uses so many global things
 def positionCamera(point, direction, rotAngle):
     """Highly globally dependent function. Very complicated geometry positioning. Must not be
     called before all intrinsic parameters are set."""

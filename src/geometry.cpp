@@ -19,6 +19,7 @@ static const std::vector<std::tuple<int, int>> N8 = {
     std::make_tuple(-1, -1), std::make_tuple(1, -1), std::make_tuple(0, -1),
     std::make_tuple(-1,  0), std::make_tuple(1,  0), std::make_tuple(0,  1),
     std::make_tuple(-1,  1), std::make_tuple(1,  1)};
+static const bp::tuple DEEP_PINK = bp::make_tuple(147, 20, 255);
 
 // Helper function to make creating of tuples easier.
 template<typename A, typename B>
@@ -27,11 +28,16 @@ inline bp::tuple tuple_(A a, B b) {
 }
 
 // Creates list of size n initialized with given value
-inline bp::list init_python_list(int n, bp::object value=NONE) {
+template<typename T>
+inline bp::list init_python_list(int n, T value) {
     bp::list li;
     li.append(value);
     li *= n;
     return li;
+}
+
+inline bp::list init_python_list(int n) {
+    return init_python_list(n, NONE);
 }
 
 // Makes a copy of a boost::python::list
@@ -445,3 +451,41 @@ bp::list ster::missing_interpolation(
     }
     return to_python_list(image_from);
 }
+
+bp::tuple transform_virtual(
+        int width, int height, const bp::list &back_coords, const bp::list &orig_img) {
+    bp::list virtual_img = init_python_list(width*height, 0);
+    bp::list disparity_map = init_python_list(width*height, 0.0);
+    bp::list virtual_visual_img = init_python_list(width*height, DEEP_PINK);
+    bp::list occlusion_mask = init_python_list(width*height, 0);
+
+    for (int y = 0; y < height; y++) {
+        for (int x = 0; x < width; x++) {
+            if (back_coords[y*width+x] == NONE) {
+                occlusion_mask[y*width+x] = 255;
+                continue;
+            }
+            bp::tuple orig_coord = bp::extract<bp::tuple>(back_coords[y*width+x]);
+            double j = bp::extract<int>(orig_coord[0]), k = bp::extract<int>(orig_coord[1]);
+            int rk = round(k);
+            disparity_map[y*width+x] = fabs(x-j);
+            double dj = fabs(j - trunc(j));
+            // virtual_img[y*width+x] = (int)((1-dj)*bp::extract<int>(orig_img[]))
+        }
+    }
+}
+
+// for i in xrange(widthPxl*heightPxl):
+//         x, y = virtualImPxls[i]
+//         if originalImPxls[i] is None:
+//             occlusionMask[y,x] = 255
+//             continue
+//         j, k = originalImPxls[i]
+//         disparityMap[y,x] = abs(x-j)
+//         y, k = round(y), round(k)
+//         dj = abs(j-math.trunc(j))
+//         virtualImg[y,x] = int((1-dj)*origImg[k,j,0] + dj*origImg[k,j+1,0])
+//         # virtualImg[y,x] = origImg[k,j,0]
+//         virtualVisualImg[y,x] = origImg[k,j]
+
+//     return virtualImg, disparityMap, virtualVisualImg, occlusionMask
