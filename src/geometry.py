@@ -69,3 +69,31 @@ def createGridImage(width, height, gap):
     for i in xrange(gap, height, gap):
         img[i,:] = 0
     return img
+
+N8 = [(1,0), (-1,0), (0,1), (0,-1), (-1,-1), (-1,1), (1,-1), (1,1)]
+
+# Tricky function, might mess up disparity map. Check the results before saving it
+def fillDisparityMap(disparityMap, threshold=7):
+    h, w = disparityMap.shape
+    disparityMapCopy = np.copy(disparityMap)
+    mind = disparityMap[disparityMap >= 0.0].min()
+    for i in xrange(h):
+        for j in xrange(w):
+            if disparityMap[i,j] >= 0.0:
+                continue
+
+            count = 0
+            s = 0.0
+            for dx, dy in N8:
+                ii = i+dx
+                jj = j+dy
+                if ii < 0 or jj < 0 or ii >= h or jj >= w or disparityMap[ii,jj] < 0.0:
+                    continue
+                s += disparityMap[ii,jj]
+                count += 1
+
+            if count >= threshold:
+                disparityMapCopy[i,j] = s / count
+            else:
+                disparityMapCopy[i,j] = mind
+    return disparityMapCopy

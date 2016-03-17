@@ -9,7 +9,8 @@ from mpl_toolkits.mplot3d import Axes3D
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
 import rcutils
-from geometry import plotT, plotP, plotL, plotG, plotImVs, rayCaster, testCoords, createGridImage
+from geometry import plotT, plotP, plotL, plotG, plotImVs, rayCaster, testCoords, createGridImage, \
+    fillDisparityMap
 
 from geometry_cpp import convert_coordinates_2d, rotate_3d, Vector, Triangle, FakeRect, \
     create_grid, raycast, depth_to_scene, missing_interpolation, transform_virtual
@@ -28,15 +29,15 @@ from geometry_cpp import convert_coordinates_2d, rotate_3d, Vector, Triangle, Fa
 ZEROVEC = Vector(0., 0., 0.)
 
 # Camera parameters
-Z_HEIGHT = 3.
-X_OFF = 0.01
-Y_OFF = -0.15
+Z_HEIGHT = 2.
+X_OFF = -0.09
+Y_OFF = 0.15
 B = -0.18
 TILT = 0.
 CHIP_MUL = 1.0
 
 # Intrinsic parameters
-focalLength = 0.00315
+focalLength = 0.00375
 
 # Default vector and camera position that is later used to rotate and place image plane
 # easier in 3D space. Includes perpendicular vectors for rotating the side image vectors.
@@ -139,40 +140,39 @@ if __name__ == '__main__':
     coords, depthS, foreground = raycast(grid, source, triangles_cpp, drain, drainRectangle, [184, 185])    # HACK
     print 'Raycast time:', time.time() - start
     resultCoords = convert_coordinates_2d(coords, originD, vecbxd, vecbyd, rotAngleD)
-    print 'Time intermediate:', time.time() - start
     virtualImg, disparityMap, virtualVisual, occlusionMask = \
         transform_virtual(int(widthPxl), int(heightPxl), resultCoords, list(map(int, origImg[:,:,0].flatten())))
     virtualImg = np.array(virtualImg, dtype=np.uint8).reshape([heightPxl, widthPxl])
     disparityMap = np.array(disparityMap, dtype=np.float32).reshape([heightPxl, widthPxl])
     virtualVisual = np.array(virtualVisual, dtype=np.uint8).reshape([heightPxl, widthPxl, 3])
     occlusionMask = np.array(occlusionMask, dtype=np.uint8).reshape([heightPxl, widthPxl])
-    print 'Time:', time.time() - start
     virtualImgFilled = np.array(missing_interpolation(
         list(map(int, virtualImg.flatten())), 
         virtualImg.shape[1],
         virtualImg.shape[0],
-        15,
+        200,
         list(map(int, occlusionMask.flatten()))), dtype=np.uint8).reshape((heightPxl, widthPxl))
+    print 'Time:', time.time() - start
     
     # Visualizing everything
     # cv2.imshow('Right image (real)', cv2.resize(origImg, (640, 480)))
-    cv2.imshow('Left image (virtual)', virtualImg)
-    cv2.imshow('Occlusion mask', occlusionMask)
-    cv2.imshow('Virtual with pink occlusions', cv2.resize(virtualVisual, (640, 480)))
+    # cv2.imshow('Left image (virtual)', virtualImg)
+    # cv2.imshow('Occlusion mask', occlusionMask)
+    # cv2.imshow('Virtual with pink occlusions', cv2.resize(virtualVisual, (640, 480)))
     cv2.imshow('Virtual image non-occluded', virtualImgFilled)
 
-    # depthS2d = np.array(depthS).reshape([widthPxl, heightPxl]).T
-    # depthSimg = np.array((1. - depthS2d / depthS2d.flatten().max())*255, dtype=np.uint8)
+    depthS2d = np.array(depthS).reshape([widthPxl, heightPxl]).T
+    depthSimg = np.array((1. - depthS2d / depthS2d.flatten().max())*255, dtype=np.uint8)
     # cv2.imshow('Depth - virtual image', depthSimg)
 
-    # foreground = np.array(foreground, dtype=np.uint8).reshape([widthPxl, heightPxl]).T * 255
+    foreground = np.array(foreground, dtype=np.uint8).reshape([widthPxl, heightPxl]).T * 255
     # cv2.imshow('Foreground', foreground)
     # cv2.imshow('Intersect face', cv2.resize(virtualImg | foreground, (640, 480)))
 
     # depth to drain, not useful
-    # depthD = depth_to_scene(grid2, drain, triangles_cpp)
-    # depthD2d = np.array(depthD).reshape([widthPxl, heightPxl]).T
-    # depthDimg = np.array((1. - depthD2d / depthD2d.flatten().max())*255, dtype=np.uint8)
+    depthD = depth_to_scene(grid2, drain, triangles_cpp)
+    depthD2d = np.array(depthD).reshape([widthPxl, heightPxl]).T
+    depthDimg = np.array((1. - depthD2d / depthD2d.flatten().max())*255, dtype=np.uint8)
     # cv2.imshow('Depth - original image', depthDimg)
     
     # Disparities visualizing
@@ -182,56 +182,25 @@ if __name__ == '__main__':
     maxd, mind = flattenedDisparity.max(), flattenedDisparity.min()
     print 'max, min', maxd, mind
 
-
+    disparityMap = fillDisparityMap(disparityMap, 6)    
     disparityMapCopy = np.copy(disparityMap)
-
-    h, w = disparityMap.shape
-    count = 0
-    N8 = [(1,0), (-1,0), (0,1), (0,-1), (-1,-1), (-1,1), (1,-1), (1,1)]
-    li = [0]*10
-    for i in xrange(h):
-        for j in xrange(w):
-            if disparityMap[i,j] >= 0.0:
-                continue
-            count = 0
-            s = 0.0
-            for dx, dy in N8:
-                ii = i+dx
-                jj = j+dy
-                if ii < 0 or jj < 0 or ii >= h or jj >= w:
-                    continue
-                if disparityMap[ii,jj] < 0.0:
-                    count += 1
-                else:
-                    s += disparityMap[ii,jj]
-            li[count] += 1
-            if count < 2:
-                disparityMapCopy[i,j] = s / (8-count)
-                nonocclDisparity[i,j] = True
-            else:
-                disparityMapCopy[i,j] = mind
-                nonocclDisparity[i,j] = True
-    print li
-
-
-
-    
-    disparityMapCopy[nonocclDisparity] = (disparityMapCopy[nonocclDisparity]-24)*255/14
-
+    disparityMapCopy = (disparityMapCopy-123)*255/77
     disparityMapCopy = cv2.applyColorMap(np.array(disparityMapCopy, dtype=np.uint8), cv2.COLORMAP_JET)
     cv2.imshow('Disparity', disparityMapCopy)
     
-    # cv2.imwrite('output_data/origimg.pgm', origImg[:,:,0])
-    # cv2.imwrite('output_data/virtualimg.pgm', virtualImg)
-    # cv2.imwrite('output_data/virtualimg_pink.pgm', virtualVisual)
-    # cv2.imwrite('output_data/virtualimg_nooccl.pgm', virtualImgFilled)
-    # cv2.imwrite('output_data/occlusion_mask.pgm', occlusionMask)
-    # cv2.imwrite('output_data/foreground_mask.pgm', foreground)
-    # cv2.imwrite('output_data/depth_source.pgm', depthSimg)
-    # cv2.imwrite('output_data/depth_drain.pgm', depthDimg)
+    cv2.imwrite('output_data/origimg.pgm', origImg[:,:,0])
+    cv2.imwrite('output_data/origimg_P6.pgm', origImg)
+    cv2.imwrite('output_data/virtualimg.pgm', virtualImg)
+    cv2.imwrite('output_data/virtualimg_pink.pgm', virtualVisual)
+    cv2.imwrite('output_data/virtualimg_nooccl.pgm', virtualImgFilled)
+    cv2.imwrite('output_data/virtualimg_nooccl_P6.pgm', cv2.cvtColor(virtualImgFilled, cv2.COLOR_GRAY2BGR))
+    cv2.imwrite('output_data/occlusion_mask.pgm', occlusionMask)
+    cv2.imwrite('output_data/foreground_mask.pgm', foreground)
+    cv2.imwrite('output_data/depth_source.pgm', depthSimg)
+    cv2.imwrite('output_data/depth_drain.pgm', depthDimg)
     cv2.imwrite('output_data/disparity.pgm', disparityMapCopy)
-    # cv2.imwrite('output_data/virtualimg_fg.pgm', virtualImg | foreground)
-    # cv2.imwrite('output_data/disparity_map.pgm', disparityMap)
+    cv2.imwrite('output_data/virtualimg_fg.pgm', virtualImg | foreground)
+    cv2.imwrite('output_data/disparity_map.pgm', disparityMap)
     np.save('output_data/disparity_data', disparityMap)
 
 
