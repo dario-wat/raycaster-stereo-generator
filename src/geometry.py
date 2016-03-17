@@ -97,3 +97,12 @@ def fillDisparityMap(disparityMap, threshold=7):
             else:
                 disparityMapCopy[i,j] = mind
     return disparityMapCopy
+
+def noisify(img, sigma):
+    """Add Gaussian noise to the image."""
+    intImg = img.astype(np.int32)
+    noise = np.round(np.random.normal(0.0, sigma, intImg.shape))
+    noisedImg = intImg + noise
+    noisedImg[noisedImg < 0] = 0
+    noisedImg[noisedImg > 255] = 255
+    return noisedImg.astype(np.uint8)
