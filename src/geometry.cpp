@@ -452,36 +452,52 @@ bp::list ster::missing_interpolation(
     return to_python_list(image_from);
 }
 
-bp::tuple transform_virtual(
+bp::tuple ster::transform_virtual(
         int width, int height, const bp::list &back_coords, const bp::list &orig_img) {
     bp::list virtual_img = init_python_list(width*height, 0);
-    bp::list disparity_map = init_python_list(width*height, 0.0);
+    bp::list disparity_map = init_python_list(width*height, -1.0);
     bp::list virtual_visual_img = init_python_list(width*height, DEEP_PINK);
     bp::list occlusion_mask = init_python_list(width*height, 0);
 
     for (int y = 0; y < height; y++) {
         for (int x = 0; x < width; x++) {
-            if (back_coords[y*width+x] == NONE) {
+            if (back_coords[x*height+y] == NONE) {
                 occlusion_mask[y*width+x] = 255;
                 continue;
             }
-            bp::tuple orig_coord = bp::extract<bp::tuple>(back_coords[y*width+x]);
-            double j = bp::extract<int>(orig_coord[0]), k = bp::extract<int>(orig_coord[1]);
-            int rk = round(k);
-            disparity_map[y*width+x] = fabs(x-j);
-            double dj = fabs(j - trunc(j));
-            // virtual_img[y*width+x] = (int)((1-dj)*bp::extract<int>(orig_img[]))
+            bp::tuple orig_coord = bp::extract<bp::tuple>(back_coords[x*height+y]);
+            float j = bp::extract<float>(orig_coord[0]), k = bp::extract<float>(orig_coord[1]);
+            disparity_map[y*width+x] = fabsf(x-j);
+
+            int rk = round(k), rj = trunc(j);
+            float dj = fabsf(j - rj;
+            int pl = bp::extract<int>(orig_img[rk*width+rj]);
+            int pr = bp::extract<int>(orig_img[rk*width+rj+1]);
+            virtual_img[y*width+x] = static_cast<int>(round((1-dj)*pl + dj*pr));
+            virtual_visual_img[y*width+x] = bp::make_tuple(pl, pl, pl);
         }
     }
+
+    return bp::make_tuple(virtual_img, disparity_map, virtual_visual_img, occlusion_mask);
 }
 
-// for i in xrange(widthPxl*heightPxl):
+// virtualImPxls = np.mgrid[0:widthPxl, 0:heightPxl].reshape(2, widthPxl*heightPxl).T
+//     originalImPxls = np.array(backCoords)
+
+//     virtualImg = np.zeros((heightPxl, widthPxl), np.uint8)
+//     disparityMap = np.ones((heightPxl, widthPxl), np.float32) * -1.0
+//     virtualVisualImg = np.zeros((heightPxl, widthPxl, 3), np.uint8)
+//     occlusionMask = np.zeros((heightPxl, widthPxl), np.uint8)
+//     virtualVisualImg[:,:] = DEEP_PINK
+    
+//     for i in xrange(widthPxl*heightPxl):
 //         x, y = virtualImPxls[i]
 //         if originalImPxls[i] is None:
 //             occlusionMask[y,x] = 255
 //             continue
 //         j, k = originalImPxls[i]
 //         disparityMap[y,x] = abs(x-j)
+
 //         y, k = round(y), round(k)
 //         dj = abs(j-math.trunc(j))
 //         virtualImg[y,x] = int((1-dj)*origImg[k,j,0] + dj*origImg[k,j+1,0])

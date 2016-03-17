@@ -99,6 +99,11 @@ boost::python::list missing_interpolation(
     int h,
     int n_iter,
     const boost::python::list &occl_map);
+boost::python::tuple transform_virtual(
+    int width,
+    int height,
+    const boost::python::list &back_coords,
+    const boost::python::list &orig_img);
 
 }
 
@@ -142,6 +147,7 @@ BOOST_PYTHON_MODULE(geometry_cpp) {
     def("convert_coordinates_2d", ster::convert_coordinates_2d);
     def("depth_to_scene", ster::depth_to_scene);
     def("missing_interpolation", ster::missing_interpolation);
+    def("transform_virtual", ster::transform_virtual);
 }
 
 #endif
