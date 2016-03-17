@@ -62,36 +62,6 @@ def testCoords(coords1, coords2):
             return False
     return True
 
-DEEP_PINK = [147, 20, 255]
-N8 = np.array([[-1, -1], [-1, 0], [-1, 1], [0, -1], [0, 1], [1, -1], [1, 0], [1, 1]])
-
-def transformVirtual(widthPxl, heightPxl, backCoords, origImg):
-    """Transforms real image into virtual using the previously raycasted coordinates.
-    Bilinear interpolation works with the assumption that Y values are already aligned."""
-    virtualImPxls = np.mgrid[0:widthPxl, 0:heightPxl].reshape(2, widthPxl*heightPxl).T
-    originalImPxls = np.array(backCoords)
-
-    virtualImg = np.zeros((heightPxl, widthPxl), np.uint8)
-    disparityMap = np.ones((heightPxl, widthPxl), np.float32) * -1.0
-    virtualVisualImg = np.zeros((heightPxl, widthPxl, 3), np.uint8)
-    occlusionMask = np.zeros((heightPxl, widthPxl), np.uint8)
-    virtualVisualImg[:,:] = DEEP_PINK
-    
-    for i in xrange(widthPxl*heightPxl):
-        x, y = virtualImPxls[i]
-        if originalImPxls[i] is None:
-            occlusionMask[y,x] = 255
-            continue
-        j, k = originalImPxls[i]
-        disparityMap[y,x] = abs(x-j)
-        y, k = round(y), round(k)
-        dj = abs(j-math.trunc(j))
-        virtualImg[y,x] = round((1-dj)*origImg[k,j,0] + dj*origImg[k,j+1,0])
-        # virtualImg[y,x] = origImg[k,j,0]
-        virtualVisualImg[y,x] = origImg[k,j]
-
-    return virtualImg, disparityMap, virtualVisualImg, occlusionMask
-
 def createGridImage(width, height, gap):
     img = np.ones((height, width), dtype=np.uint8)*255
     for i in xrange(gap, width, gap):

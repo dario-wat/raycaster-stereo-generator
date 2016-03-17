@@ -9,8 +9,7 @@ from mpl_toolkits.mplot3d import Axes3D
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
 import rcutils
-from geometry import plotT, plotP, plotL, plotG, plotImVs, rayCaster, testCoords, \
-    transformVirtual, createGridImage
+from geometry import plotT, plotP, plotL, plotG, plotImVs, rayCaster, testCoords, createGridImage
 
 from geometry_cpp import convert_coordinates_2d, rotate_3d, Vector, Triangle, FakeRect, \
     create_grid, raycast, depth_to_scene, missing_interpolation, transform_virtual
@@ -141,23 +140,12 @@ if __name__ == '__main__':
     print 'Raycast time:', time.time() - start
     resultCoords = convert_coordinates_2d(coords, originD, vecbxd, vecbyd, rotAngleD)
     print 'Time intermediate:', time.time() - start
-    # virtualImg, disparityMap, virtualVisual, occlusionMask = \
-    #     transformVirtual(widthPxl, heightPxl, resultCoords, origImg)
     virtualImg, disparityMap, virtualVisual, occlusionMask = \
         transform_virtual(int(widthPxl), int(heightPxl), resultCoords, list(map(int, origImg[:,:,0].flatten())))
     virtualImg = np.array(virtualImg, dtype=np.uint8).reshape([heightPxl, widthPxl])
     disparityMap = np.array(disparityMap, dtype=np.float32).reshape([heightPxl, widthPxl])
     virtualVisual = np.array(virtualVisual, dtype=np.uint8).reshape([heightPxl, widthPxl, 3])
     occlusionMask = np.array(occlusionMask, dtype=np.uint8).reshape([heightPxl, widthPxl])
-    # print sum(sum(np.abs(virtualImg-np.array(rvirtualImg, dtype=np.uint8).reshape(virtualImg.shape)>0)))
-    # print sum(sum(np.abs(disparityMap-np.array(rdisparityMap).reshape(disparityMap.shape))>0.0001 ))
-    # print sum(sum(sum(virtualVisual!=np.array(rvirtualVisual, dtype=np.uint8).reshape(virtualVisual.shape))))
-    # print sum(sum(occlusionMask!=np.array(rocclusionMask, dtype=np.uint8).reshape(occlusionMask.shape)))
-    # print widthPxl*heightPxl
-    # print virtualImg
-    # print np.array(rvirtualImg, dtype=np.uint8).reshape(virtualImg.shape)
-    # cv2.imshow("test1", np.array(rvirtualImg, dtype=np.uint8).reshape(virtualImg.shape))
-    # cv2.imshow("test2", ((np.array(rdisparityMap).reshape(disparityMap.shape)-24)*255/14).astype(np.uint8))
     print 'Time:', time.time() - start
     virtualImgFilled = np.array(missing_interpolation(
         list(map(int, virtualImg.flatten())), 
