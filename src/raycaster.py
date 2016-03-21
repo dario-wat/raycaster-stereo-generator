@@ -28,16 +28,28 @@ from geometry_cpp import convert_coordinates_2d, rotate_3d, Vector, Triangle, Fa
 # Constants
 ZEROVEC = Vector(0., 0., 0.)
 
+# camdata = [3.1, 0.05, 0.3, -0.18, 0.0, 1.0, 0.00315, 23, 13]        # vga_data_3
+# camdata = [3.1, 0.2, 0.3, -0.18, 0.0, 1.0, 0.00315, 23, 13]         # vga_data_4
+
+# camdata = [3.0, 0.01, -0.15, -0.18, 0.0, 1.0, 0.00315, 24, 14]      # vga_data_1
+# camdata = [2.8, 0.2, -0.15, -0.18, 0.0, 1.0, 0.00315, 25, 15]       # vga_data_2
+# camdata = [3.4, 0.8, 0.3, -0.18, 0.0, 1.0, 0.00315, 21, 13]         # vga_data_5
+camdata = [2.0, -0.09, 0.15, -0.18, 0.0, 1.0, 0.00375, 123, 77]     # data_large_{1,2}
+
 # Camera parameters
-Z_HEIGHT = 3.
-X_OFF = 0.01
-Y_OFF = -0.15
-B = -0.18
-TILT = 0.
-CHIP_MUL = 1.0
+Z_HEIGHT = camdata[0]
+X_OFF = camdata[1]
+Y_OFF = camdata[2]
+B = camdata[3]
+TILT = camdata[4]
+CHIP_MUL = camdata[5]
 
 # Intrinsic parameters
-focalLength = 0.00315
+focalLength = camdata[6]
+
+# Disparity map visualization scale
+translator = camdata[7]
+scalor = camdata[8]
 
 # Default vector and camera position that is later used to rotate and place image plane
 # easier in 3D space. Includes perpendicular vectors for rotating the side image vectors.
@@ -184,7 +196,7 @@ if __name__ == '__main__':
 
     disparityMap = fillDisparityMap(disparityMap, 6)    
     disparityMapCopy = np.copy(disparityMap)
-    disparityMapCopy = (disparityMapCopy-24)*255/14
+    disparityMapCopy = (disparityMapCopy-translator)*255/scalor
     disparityMapCopy = cv2.applyColorMap(np.array(disparityMapCopy, dtype=np.uint8), cv2.COLORMAP_JET)
     cv2.imshow('Disparity', disparityMapCopy)
 
@@ -227,84 +239,3 @@ if __name__ == '__main__':
     print 'All done:', time.time() - start
 
     plt.show()
-
-
-# Params for both large images in data_large_{1,2}
-# # Camera parameters
-# Z_HEIGHT = 2.
-# X_OFF = -0.09
-# Y_OFF = 0.15
-# B = -0.18
-# TILT = 0.
-# CHIP_MUL = 1.0
-
-# # Intrinsic parameters
-# focalLength = 0.00375
-# min max 123 200
-
-
-# vga_data_1
-# # Camera parameters
-# Z_HEIGHT = 3.
-# X_OFF = 0.01
-# Y_OFF = -0.15
-# B = -0.18
-# TILT = 0.
-# CHIP_MUL = 1.0
-
-# # Intrinsic parameters
-# focalLength = 0.00315
-# min max diff 24 38 14 for scaling the color and sizes 
-# actually 26 and 36
-
-# vga_data_2
-# Camera parameters
-# Z_HEIGHT = 2.8
-# X_OFF = 0.2
-# Y_OFF = -0.15
-# B = -0.18
-# TILT = 0.
-# CHIP_MUL = 1.0
-
-# # Intrinsic parameters
-# focalLength = 0.00315
-# min max 27 38
-
-# vga_data_3
-# Camera parameters
-# Z_HEIGHT = 3.1
-# X_OFF = 0.05
-# Y_OFF = 0.3
-# B = -0.18
-# TILT = 0.
-# CHIP_MUL = 1.0
-
-# # Intrinsic parameters
-# focalLength = 0.00315
-# min max 25 34
-
-# vga_data_4
-# Camera parameters
-# Z_HEIGHT = 3.1
-# X_OFF = 0.2
-# Y_OFF = 0.3
-# B = -0.18
-# TILT = 0.
-# CHIP_MUL = 1.0
-
-# # Intrinsic parameters
-# focalLength = 0.00315
-# min max 25 34
-
-# vga_data_5
-# Camera parameters
-# Z_HEIGHT = 3.4
-# X_OFF = 0.8
-# Y_OFF = 0.3
-# B = -0.18
-# TILT = 0.
-# CHIP_MUL = 1.0
-
-# # Intrinsic parameters
-# focalLength = 0.00315
-# min max 23 31
